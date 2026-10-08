@@ -61,6 +61,16 @@ run_static_checks() {
             -o "${test_dir}/test_demo_${demo}_runtime"
         "${test_dir}/test_demo_${demo}_runtime"
     done
+    for pocket in proto text ring hist; do
+        "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain -Itests \
+            "tests/test_pocket_${pocket}.c" "main/pocket_${pocket}.c" \
+            -o "${test_dir}/test_pocket_${pocket}"
+        "${test_dir}/test_pocket_${pocket}"
+    done
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain -Itests \
+        tests/test_pocket_model.c main/pocket_model.c main/pocket_text.c \
+        -o "${test_dir}/test_pocket_model"
+    "${test_dir}/test_pocket_model"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_check_repo.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py

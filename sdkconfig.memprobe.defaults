@@ -1,0 +1,9 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+#
+# Overlay for a pocket memory-probe image (CONFIG_POCKET_DEBUG_MEMPROBE), on
+# top of the debug overlay. It injects fake keys and replies and restarts the
+# chip once; development only, never ship an image built with it.
+# idf.py -B build-memprobe -D SDKCONFIG=build-memprobe/sdkconfig \
+#   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.debug.defaults;sdkconfig.memprobe.defaults" build
+CONFIG_POCKET_DEBUG_MEMPROBE=y

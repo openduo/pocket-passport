@@ -1,0 +1,9 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+#
+# Overlay for a reply-wait flow probe image (CONFIG_POCKET_DEBUG_FLOWPROBE),
+# on top of the debug overlay. It injects fake phone messages; development
+# only, never ship an image built with it.
+# idf.py -B build-flowprobe -D SDKCONFIG=build-flowprobe/sdkconfig \
+#   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.debug.defaults;sdkconfig.flowprobe.defaults" build
+CONFIG_POCKET_DEBUG_FLOWPROBE=y

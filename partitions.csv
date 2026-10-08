@@ -1,4 +1,9 @@
 # Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x6000,
 phy_init, data, phy,     0xf000,   0x1000,
-factory,  app,  factory, 0x10000,  0x7f0000,
+factory,  app,  factory, 0x10000,  0x7e0000,
+# Pocket reply history (main/pocket_hist.h): 16 erase sectors at the end of
+# the flash, so the app offset and NVS stay where they were. 64 KB holds the
+# 16 KB budget with room to spread erases: each sector is erased once per
+# 64 KB of replies written.
+history,  data, 0x40,    0x7f0000, 0x10000,

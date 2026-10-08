@@ -1,0 +1,13 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+#
+# Overlay for a standby/deep-sleep test image, on top of the debug overlay:
+# the screen goes dark on the USB host (link idle parameters are requested),
+# deep sleep follows 45 s without an event, and a 20 s timer wakes the chip
+# besides the keys, so boot and reconnect can be followed on the console.
+# Development only; never ship an image built with it.
+# idf.py -B build-sleeptest -D SDKCONFIG=build-sleeptest/sdkconfig \
+#   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.debug.defaults;sdkconfig.sleeptest.defaults" build
+CONFIG_POCKET_DEBUG_IGNORE_USB_HOST=y
+CONFIG_POCKET_DEBUG_DEEP_SLEEP_S=45
+CONFIG_POCKET_DEBUG_DEEP_SLEEP_TIMER_S=20

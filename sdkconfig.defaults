@@ -24,12 +24,15 @@ CONFIG_LV_COLOR_DEPTH_16=y
 CONFIG_LV_DEF_REFR_PERIOD=20
 CONFIG_LV_FONT_MONTSERRAT_14=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
-# LVGL 内置 malloc 池大小(KB)。它是独立静态区、不与系统堆共享,配大了会白白占用 RAM。
-# 本 demo UI 简单,24KB 足够;若自建复杂界面出现绘制卡死/看门狗,调大此值。
-CONFIG_LV_MEM_SIZE_KILOBYTES=24
+# LVGL pool size: see CONFIG_LV_MEM_SIZE_KILOBYTES in the pocket section below.
 
 # --- 系统 ---
 CONFIG_FREERTOS_HZ=1000
+# Pocket: optimise for size (-Os) in release and debug images. Basis: the
+# memory probe measured 11.2 KB less static RAM (IRAM code) than the default
+# -Og; the Opus encoder's real-time margin is checked by the probe (enc_us
+# per 20 ms frame, PCM drops 0).
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
 
 # --- Bluetooth LE / NimBLE ---
 # ESP32-C3 仅支持 BLE；示例只启用单连接 peripheral 所需的最小 host 配置。
@@ -41,4 +44,51 @@ CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
 CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_HOST_BASED_PRIVACY=n
-CONFIG_BT_NIMBLE_NVS_PERSIST=n
+CONFIG_BT_NIMBLE_NVS_PERSIST=y
+
+# --- Pocket firmware ---
+# Bonds persist in NVS (above); LE Secure Connections only, no legacy pairing.
+CONFIG_BT_NIMBLE_SM_LEGACY=n
+CONFIG_BT_NIMBLE_SM_SC=y
+# LVGL pool (LVGL 9.5.0 as locked): measured peak + 25 %, rounded up to 1 KB.
+# Peak (memory probe, sdkconfig.memprobe.defaults): lv_max_used 16,016 B on
+# the pairing-code screen; the 4 KB reply screen reached 15,468 B.
+# 16,016 x 1.25 = 20,020 B -> 20 KB. The pool's own
+# allocator header takes ~2.6 KB of it (lv_total 30,116 of 32 KB), so the
+# free margin above the peak is ~1.8 KB: new screens must be measured with
+# the probe (lv_max) before they ship. The reply text is static (not in the
+# pool).
+CONFIG_LV_MEM_SIZE_KILOBYTES=20
+# LVGL draw buffer: 20 lines (9.6 KB) instead of the BSP's 40 (19.2 KB),
+# trading redraw time for heap: the memory probe (refr_ms) measured a full
+# redraw of the 4 KB reply screen at ~104 ms (40 lines: ~68 ms).
+CONFIG_BSP_LVGL_DRAW_BUFFER_LINES=20
+# The CJK font (7666 glyphs) needs 32-bit glyph offsets.
+CONFIG_LV_FONT_FMT_TXT_LARGE=y
+CONFIG_LV_TXT_ENC_UTF8=y
+CONFIG_LV_USE_FONT_PLACEHOLDER=y
+
+# --- Pocket standby: automatic light sleep while the BLE link stays up ---
+# Frequency scaling and light sleep are configured at run time
+# (main/pocket_power.c); PM locks keep the chip awake while the screen is lit
+# and while the codec runs.
+CONFIG_PM_ENABLE=y
+# No light sleep while a USB host is connected (start-of-frame packets seen):
+# the USB Serial/JTAG pad is switched off in light sleep, which drops the
+# console and, after several sleeps, the port itself on the host. A charger
+# sends no SOF, so on a charger the device still sleeps.
+CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=y
+# BLE controller sleeps between connection events. The board has no 32 kHz
+# crystal (its pins, GPIO0/GPIO1, are the key ladder and LCD CS) and the
+# internal 136 kHz RC is outside the 500 ppm the link needs, so the main
+# 40 MHz crystal is the low-power clock and stays powered in light sleep.
+CONFIG_BT_CTRL_MODEM_SLEEP=y
+CONFIG_BT_CTRL_MODEM_SLEEP_MODE_1=y
+CONFIG_BT_CTRL_LPCLK_SEL_MAIN_XTAL=y
+CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP=y
+# Keep the CPU powered in light sleep. Powering it down saves ~100 uA of sleep
+# current but its context retention takes 1.68 KB of internal RAM (ESP-IDF
+# Kconfig figures), and standby already costs ~4 KB of IRAM code; the heap
+# must still fit a 4 KB reply message in one block (POCKET_MAX_MSG_BYTES).
+CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP=n

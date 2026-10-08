@@ -1,0 +1,195 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+#
+# Build-time tunables of the pocket firmware. The first help line of each
+# option states its basis. Fixed protocol and format constants live in
+# main/pocket_config.h.
+menu "Pocket"
+
+config POCKET_PREROLL_MS
+    int "Pre-roll length (ms)"
+    range 0 2000
+    default 320
+    help
+        Precedent: an earlier push-to-talk design kept a 320 ms pre-roll
+        ring. Audio kept from before the
+        press when the pre-roll setting is on; packets are Opus-encoded, so
+        the ring costs ~4 KB instead of ~10 KB of PCM.
+
+config POCKET_PREROLL_DEFAULT
+    bool "Pre-roll on by default"
+    default n
+    help
+        Pending data: a CW2017 battery-drain comparison of on and off picks
+        the default. Off keeps the codec asleep while idle. The user setting
+        in NVS overrides this after the first change.
+
+config POCKET_TX_BUFFER_BYTES
+    int "Outbound BLE message buffer (bytes)"
+    range 2048 32768
+    default 8192
+    help
+        Rides out link stalls without losing press audio: a 2.1 s gap was
+        measured (iOS app relaunch); at ~59 B per AUDIO message incl. overhead
+        x 50/s that is ~6.2 KB; 8 KB covers ~2.7 s.
+
+config POCKET_TX_RETRY_MS
+    int "Wait before retrying a notify that found no free mbuf (ms)"
+    range 1 100
+    default 15
+    help
+        Apple's minimum connection interval (15 ms): a sent notification
+        frees an mbuf within about one interval. The wait also ends early
+        on every BLE_GAP_EVENT_NOTIFY_TX.
+
+config POCKET_PRIO_AUDIO_IO
+    int "Mic task priority"
+    default 7
+    help
+        Single-core C3: PCM I/O runs above everything except the radio, so
+        no mic frame is read late (rule from the audio pipeline probes).
+
+config POCKET_PRIO_LINK
+    int "BLE TX task priority"
+    default 6
+    help
+        Drains the outbound buffer to the radio; below PCM I/O, above the
+        codec so packets never wait behind encoding.
+
+config POCKET_PRIO_CODEC
+    int "Encoder task priority"
+    default 5
+    help
+        Codec above LVGL rendering (esp_lvgl_port task priority 4), below I/O.
+
+config POCKET_PRIO_APP
+    int "Application task priority"
+    default 3
+    help
+        Model, settings and screen updates: below the LVGL task.
+
+config POCKET_MIC_TASK_STACK
+    int "Mic task stack (bytes)"
+    default 4096
+    help
+        PCM I/O and the new-reply tone. Measured peak 2,320 B (debug image:
+        real presses, tones, memory probe), so 1,776 B (43 %) stay free.
+
+config POCKET_ENC_TASK_STACK
+    int "Encoder task stack (bytes)"
+    default 24576
+    help
+        Opus encoder at complexity 0. Measured peak 18,652 B (debug image:
+        real presses, memory probe), so 5,924 B (24 %) stay free.
+
+config POCKET_TX_TASK_STACK
+    int "BLE TX task stack (bytes)"
+    default 4096
+    help
+        NimBLE notify path only. Measured peak 1,876 B (debug image: real
+        presses with AUDIO, INFO and STATUS), so 2,220 B (54 %) stay free.
+
+config POCKET_APP_TASK_STACK
+    int "Application task stack (bytes)"
+    default 6144
+    help
+        Model step, UTF-8 sanitising, history reads and LVGL layout of a
+        4 KB reply. Measured peak 2,308 B (debug image: real presses, memory
+        and flow probes), so 3,836 B (62 %) stay free.
+
+config POCKET_DEBUG_STATS
+    bool "Heap/CPU/audio/link statistics on the console"
+    default n
+    help
+        Debug images only (sdkconfig.debug.defaults); never set in a release
+        image. Heap per init stage, then every period heap free/min/largest
+        block, encoder time, CPU load, per-task stack high-water marks and
+        CPU share, audio and BLE counters.
+
+config POCKET_STATS_PERIOD_MS
+    int "Statistics period (ms)"
+    depends on POCKET_DEBUG_STATS
+    default 2000
+    help
+        Reporting cadence of the debug image.
+
+config POCKET_STATS_TASK_STACK
+    int "Statistics task stack (bytes)"
+    depends on POCKET_DEBUG_STATS
+    default 6144
+    help
+        vfprintf of the long report line. Measured peak 2,736 B (memory
+        probe), so 3,408 B stay free.
+
+config POCKET_DEBUG_MEMPROBE
+    bool "Scripted memory probe on the console"
+    depends on POCKET_DEBUG_STATS
+    default n
+    help
+        RAM budget measurement: replays the init heap marks, then captures
+        and encodes into the hold ring (nothing is sent), injects a 4 KB
+        REPLY through the BLE receive path, scrolls it and ends it, with a
+        heap/LVGL/stack snapshot after each step. Debug images only
+        (sdkconfig.memprobe.defaults); never set in a release image.
+
+config POCKET_DEBUG_MEMPROBE_START_S
+    int "Memory probe start (seconds after boot)"
+    depends on POCKET_DEBUG_MEMPROBE
+    default 30
+    help
+        Leaves time for the USB console to re-enumerate after the reset and
+        for the bonded phone to reconnect, so the idle snapshot has a link.
+
+config POCKET_DEBUG_DEEP_SLEEP_S
+    int "Debug deep-sleep delay (seconds, 0 = the user setting)"
+    depends on POCKET_DEBUG_STATS
+    default 0
+    help
+        Test images only (sdkconfig.sleeptest.defaults); never set in a
+        release image. Replaces the deep-sleep setting with this delay and
+        also sleeps on a USB host, so deep-sleep entry can be watched on the
+        console.
+
+config POCKET_DEBUG_DEEP_SLEEP_TIMER_S
+    int "Debug deep-sleep timer wake (seconds, 0 = keys only)"
+    depends on POCKET_DEBUG_STATS
+    default 0
+    help
+        Test images only (sdkconfig.sleeptest.defaults); never set in a
+        release image. Also wakes from deep sleep after this time, so the
+        boot and reconnect after deep sleep can be checked without a key.
+
+config POCKET_DEBUG_IGNORE_USB_HOST
+    bool "Debug: treat a USB host like a charger"
+    depends on POCKET_DEBUG_STATS
+    default n
+    help
+        Test images only (sdkconfig.sleeptest.defaults); never set in a
+        release image. The screen goes dark and the link goes idle on a
+        USB host, so standby can be watched on the console (the USB
+        Serial/JTAG pad still blocks light sleep while the host is there).
+
+config POCKET_DEBUG_FLOWPROBE
+    bool "Debug: scripted reply-wait flow through the receive path"
+    depends on POCKET_DEBUG_STATS
+    default n
+    help
+        Test images only (sdkconfig.flowprobe.defaults); never set in a
+        release image. 30 s after boot the app enters a reply wait as after
+        a released press (nothing is recorded or sent), then RESULT 0 with a
+        transcript, WORK 1 and WORK 3 and REPLY_DONE 0 arrive through the
+        single-PDU receive path; each step logs the screen. Two more waits
+        then get a dense burst (RESULT, five WORK, a 4 KB REPLY in 17
+        fragments, REPLY_DONE), the second while the LVGL lock is held as
+        in a full redraw, and each logs the event queue peak (evq_peak) and
+        the enqueued events. Then APP_STATE language bytes: English, none,
+        an unknown value, Chinese.
+
+config POCKET_PRIO_STATS
+    int "Statistics task priority"
+    depends on POCKET_DEBUG_STATS
+    default 2
+    help
+        Measurement must not perturb the pipeline.
+
+endmenu

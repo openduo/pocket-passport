@@ -1,0 +1,9 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+dependencies:
+  # Opus encoder: the package line xiaozhi-esp32 uses, and the one the
+  # encoder timing was measured with.
+  espressif/esp_audio_codec: "~2.5.0"
+  # Keep LVGL on the repository's validated 9.5.0 (dependencies.lock); a new
+  # manifest would otherwise let the solver move to the latest 9.x.
+  lvgl/lvgl: "9.5.0"

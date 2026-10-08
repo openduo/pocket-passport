@@ -1,0 +1,16 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+#
+# Overlay for a pocket debug image: heap/CPU/audio/link statistics on the
+# console (CONFIG_POCKET_DEBUG_STATS). Development only; never ship an image
+# built with it. A release image is built from sdkconfig.defaults alone.
+# idf.py -B build-debug -D SDKCONFIG=build-debug/sdkconfig \
+#   -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.debug.defaults" build
+CONFIG_POCKET_DEBUG_STATS=y
+CONFIG_FREERTOS_USE_TRACE_FACILITY=y
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=y
+CONFIG_FREERTOS_RUN_TIME_STATS_USING_ESP_TIMER=y
+# 64-bit microsecond counters do not wrap during a long soak.
+CONFIG_FREERTOS_RUN_TIME_COUNTER_TYPE_U64=y
+# Light-sleep time and count per period (pocket_stats.c).
+CONFIG_PM_LIGHT_SLEEP_CALLBACKS=y

@@ -46,6 +46,25 @@ esp_err_t adc_cali_raw_to_voltage(adc_cali_handle_t h, int raw, int *mv) {
     *mv = raw; return ESP_OK;
 }
 int64_t esp_timer_get_time(void) { return clock_us; }
+// GPIO wake stubs: one pad, its interrupt, wake enable and ISR.
+static int pad_input, intr_on, wake_on, isr_added, sleep_gpio_wake, wakeup_isr_calls;
+static gpio_isr_t pad_isr;
+esp_err_t gpio_set_direction(gpio_num_t n, gpio_mode_t m) { assert(n == BSP_BTN_GPIO && m == GPIO_MODE_INPUT); pad_input = 1; return ESP_OK; }
+esp_err_t gpio_set_pull_mode(gpio_num_t n, gpio_pull_mode_t p) { assert(n == BSP_BTN_GPIO && p == GPIO_FLOATING); return ESP_OK; }
+esp_err_t gpio_set_intr_type(gpio_num_t n, gpio_int_type_t t) { assert(n == BSP_BTN_GPIO && t == GPIO_INTR_LOW_LEVEL); return ESP_OK; }
+esp_err_t gpio_install_isr_service(int f) { (void)f; return ESP_ERR_INVALID_STATE; }
+esp_err_t gpio_isr_handler_add(gpio_num_t n, gpio_isr_t isr, void *a) { (void)a; assert(n == BSP_BTN_GPIO && pad_input); pad_isr = isr; isr_added = 1; intr_on = 1; return ESP_OK; }
+esp_err_t gpio_isr_handler_remove(gpio_num_t n) { assert(n == BSP_BTN_GPIO); isr_added = 0; pad_isr = NULL; return ESP_OK; }
+esp_err_t gpio_intr_enable(gpio_num_t n) { assert(n == BSP_BTN_GPIO && isr_added); intr_on = 1; return ESP_OK; }
+esp_err_t gpio_intr_disable(gpio_num_t n) { assert(n == BSP_BTN_GPIO); intr_on = 0; return ESP_OK; }
+esp_err_t gpio_wakeup_enable(gpio_num_t n, gpio_int_type_t t) { assert(n == BSP_BTN_GPIO && t == GPIO_INTR_LOW_LEVEL); wake_on = 1; return ESP_OK; }
+esp_err_t gpio_wakeup_disable(gpio_num_t n) { assert(n == BSP_BTN_GPIO); wake_on = 0; return ESP_OK; }
+esp_err_t esp_sleep_enable_gpio_wakeup(void) { sleep_gpio_wake = 1; return ESP_OK; }
+esp_err_t esp_deep_sleep_enable_gpio_wakeup(uint64_t mask, esp_deepsleep_gpio_wake_up_mode_t mode) {
+    assert(mask == (1ULL << BSP_BTN_GPIO) && mode == ESP_GPIO_WAKEUP_GPIO_LOW);
+    return ESP_OK;
+}
+void iot_button_power_save_wakeup_isr(uint32_t gpio) { assert(gpio == BSP_BTN_GPIO); ++wakeup_isr_calls; intr_on = 0; }
 esp_err_t iot_button_create(const button_config_t *cfg, const button_driver_t *driver, button_handle_t *h) {
     // 判定门限必须由 BSP 显式下发(bsp_pins.h),不能退回组件默认的 180 / 1500ms。
     assert(cfg->short_press_time == BSP_BTN_SHORT_PRESS_MS);
@@ -100,12 +119,44 @@ static void check_voltage(int mv, int expected) {
     }
     assert(reads - before == CONFIG_ADC_BUTTON_SAMPLE_TIMES);
 }
+static void check_sleep_wake(void) {
+    assert(bsp_button_enable_sleep_wake() == ESP_ERR_INVALID_STATE);  // before init
+    assert(bsp_button_init(event_cb, &events) == ESP_OK);
+    assert(bsp_button_enable_sleep_wake() == ESP_OK);
+    assert(pad_input && isr_added && !intr_on && sleep_gpio_wake && !wake_on);
+    for (int i = 0; i < BSP_BTN_COUNT; ++i) {
+        button_driver_t *d = &s_drivers[i].base;
+        assert(d->enable_power_save && d->get_gpio_num(d) == BSP_BTN_GPIO);
+    }
+    assert(bsp_button_enable_sleep_wake() == ESP_OK);  // idempotent
+    // Idle poll: each of the three drivers is asked to enter; armed once.
+    for (int i = 0; i < BSP_BTN_COUNT; ++i) {
+        assert(s_drivers[i].base.enter_power_save(&s_drivers[i].base) == ESP_OK);
+    }
+    assert(intr_on && wake_on);
+    // A key pulls the pad low: the ISR stamps the time and resumes polling.
+    clock_us = 123456;
+    pad_isr(NULL);
+    assert(wakeup_isr_calls == 1 && !intr_on && bsp_button_last_wake_us() == 123456);
+    assert(s_drivers[0].base.exit_power_save(&s_drivers[0].base) == ESP_OK);
+    assert(!wake_on && !intr_on);
+    // Polling decodes the key from the ADC as before.
+    check_voltage(595, BSP_BTN_OK);
+    assert(s_drivers[1].base.enter_power_save(&s_drivers[1].base) == ESP_OK);
+    assert(intr_on && wake_on);
+    // Teardown removes the interrupt; a fresh init starts without wake.
+    button_cleanup();
+    assert(!isr_added && !intr_on && !wake_on);
+    assert(bsp_button_init(event_cb, &events) == ESP_OK);
+    assert(!s_drivers[0].base.enable_power_save);
+    button_cleanup();
+}
 int main(void) {
     for (int i = 1; i <= BSP_BTN_COUNT; ++i) {
         reset_faults(); fail_create = i;
         assert(bsp_button_init(event_cb, &events) != ESP_OK); retry_success();
     }
-    for (int i = 1; i <= BSP_BTN_COUNT * 4; ++i) {
+    for (int i = 1; i <= BSP_BTN_COUNT * 5; ++i) {
         reset_faults(); fail_callback = i;
         assert(bsp_button_init(event_cb, &events) != ESP_OK); retry_success();
     }
@@ -123,7 +174,14 @@ int main(void) {
     check_voltage(447, BSP_BTN_OK); check_voltage(1899, BSP_BTN_OK);
     check_voltage(1900, -1); check_voltage(3300, -1);
     assert(bsp_button_read_mv() == 3300);
+    assert(!bsp_button_any_down());
+    raw_mv = 595; assert(bsp_button_any_down());
+    raw_mv = 0; assert(bsp_button_any_down());
+    raw_mv = 1900; assert(!bsp_button_any_down());
+    raw_mv = 3300;
+    assert(bsp_button_enable_deep_sleep_wake() == ESP_OK);
     fail_read = 1; clock_us += 2000;
+    assert(!bsp_button_any_down());
     for (int i = 0; i < BSP_BTN_COUNT; ++i) assert(!button_level(&s_drivers[i].base));
     assert(bsp_button_read_mv() == -1);
     fail_read = 0; fail_convert = 1; clock_us += 2000;
@@ -133,5 +191,6 @@ int main(void) {
     assert(adc_live && cal_live && live_buttons == BSP_BTN_COUNT);
     assert(bsp_button_init(event_cb, &events) == ESP_ERR_INVALID_STATE);
     fail_delete = 0; button_cleanup(); retry_success();
+    check_sleep_wake();
     puts("BSP button fault-injection tests: PASS");
 }

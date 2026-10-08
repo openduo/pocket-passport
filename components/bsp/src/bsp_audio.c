@@ -31,6 +31,10 @@ static esp_err_t s_sleep_result;
 static bool     s_codec_release_failed;
 static uint8_t  s_volume;
 static int      s_io_error;
+// Diagnostic I2S callbacks, applied once in i2s_full_duplex_init() before enabling.
+static i2s_event_callbacks_t s_diag_tx_cbs, s_diag_rx_cbs;
+static void *s_diag_cb_user;
+static bool s_diag_cbs_set;
 
 // esp_codec_dev 1.6.2 discards some control/data interface errors. Remember the
 // first one at the public interface boundary; never inspect its private state.
@@ -344,6 +348,16 @@ static esp_err_t i2s_full_duplex_init(void) {
     if ((e = i2s_channel_init_std_mode(s_rx, &std)) != ESP_OK) {
         ESP_LOGE(TAG, "i2s rx 初始化失败: %s", esp_err_to_name(e)); return e;
     }
+    if (s_diag_cbs_set) {
+        e = i2s_channel_register_event_callback(s_tx, &s_diag_tx_cbs, s_diag_cb_user);
+        if (e == ESP_OK) {
+            e = i2s_channel_register_event_callback(s_rx, &s_diag_rx_cbs, s_diag_cb_user);
+        }
+        if (e != ESP_OK) {
+            ESP_LOGE(TAG, "diagnostic I2S callback registration failed: %s", esp_err_to_name(e));
+            return e;
+        }
+    }
     // esp_codec_dev_open 内部重配前会先 i2s_channel_disable,而 disable 要求通道处于
     // RUNNING;刚 init 的通道是 READY,会打一条 "channel has not been enabled yet" 错误日志。
     // 这里先 enable 一次让那次 disable 合法(此时 codec 未配,不出声)。
@@ -567,4 +581,14 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes) {
 void bsp_audio_set_volume(uint8_t percent) {
     s_volume = percent > 100 ? 100 : percent;
     if (s_dev && s_opened && !s_sleeping) esp_codec_dev_set_out_vol(s_dev, s_volume);
+}
+
+esp_err_t bsp_audio_set_i2s_callbacks(const i2s_event_callbacks_t *tx,
+                                      const i2s_event_callbacks_t *rx, void *user) {
+    if (s_initialized || s_tx || s_rx) return ESP_ERR_INVALID_STATE;
+    s_diag_tx_cbs = tx ? *tx : (i2s_event_callbacks_t){0};
+    s_diag_rx_cbs = rx ? *rx : (i2s_event_callbacks_t){0};
+    s_diag_cb_user = user;
+    s_diag_cbs_set = true;
+    return ESP_OK;
 }

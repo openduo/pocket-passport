@@ -9,7 +9,14 @@
 
 static const char *TAG = "bsp_lvgl";
 
+#include "sdkconfig.h"
+
+// Draw buffer height: Kconfig BSP_LVGL_DRAW_BUFFER_LINES (default 40).
+#ifdef CONFIG_BSP_LVGL_DRAW_BUFFER_LINES
+#define BSP_LVGL_DRAW_BUFFER_LINES CONFIG_BSP_LVGL_DRAW_BUFFER_LINES
+#else
 #define BSP_LVGL_DRAW_BUFFER_LINES 40
+#endif
 
 static lv_display_t *s_disp;
 static bool s_port_initialized;

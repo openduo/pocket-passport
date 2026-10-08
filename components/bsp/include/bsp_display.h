@@ -24,6 +24,14 @@ esp_lcd_panel_io_handle_t bsp_display_io(void);
 // 背光亮度 0..100(%)。LEDC PWM,0=全灭。
 void bsp_display_backlight(uint8_t percent);
 
+// Panel standby that keeps GRAM: true sends DISPOFF then SLPIN, false sends
+// SLPOUT then DISPON. The esp_lcd ST7789 driver waits 100 ms after SLPIN and
+// SLPOUT (datasheet: 5 ms after SLPOUT, 120 ms between SLPOUT and SLPIN).
+// The backlight is separate (bsp_display_backlight). Sleeping also keeps the
+// backlight and CS pins driven during automatic light sleep. Hold the LVGL
+// lock so no flush interleaves with the commands.
+esp_err_t bsp_display_sleep(bool sleep);
+
 // deep sleep 专用：关闭显示、让 ST7789 进入 Sleep In，停止背光 PWM，
 // 将 CS/SCLK/MOSI/DC/背光设为安全电平并在 deep sleep 中保持。调用时必须
 // 已阻止 LVGL 刷屏，调用后必须立即进入 deep sleep 或重启。

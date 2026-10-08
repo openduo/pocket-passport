@@ -52,6 +52,10 @@
 // ============================================================================
 #define BSP_BTN_ADC_UNIT     ADC_UNIT_1
 #define BSP_BTN_ADC_CHANNEL  ADC_CHANNEL_0    // GPIO0
+// The same pad as a digital input, for light-sleep wake (bsp_button_enable_sleep_wake).
+// Every key pulls the node to <= 595 mV, below the ESP32-C3 VIL max of
+// 0.25 x VDD = 825 mV, so a low level means "a key is down"; released is 3.3 V.
+#define BSP_BTN_GPIO         0
 #define BSP_BTN_COUNT        3
 
 // 按键判定时序(ms):由 BSP 显式下发给 button 组件,不依赖它的 Kconfig 默认值。

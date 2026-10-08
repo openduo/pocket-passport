@@ -1,0 +1,15 @@
+# Copyright 2026 openduo
+# SPDX-License-Identifier: FSL-1.1-Apache-2.0
+menu "Board support (BSP)"
+
+config BSP_LVGL_DRAW_BUFFER_LINES
+    int "LVGL draw buffer height (panel lines)"
+    range 10 320
+    default 40
+    help
+        Single DMA draw buffer in internal RAM: 240 px x lines x 2 bytes
+        (40 lines = 19.2 KB). More lines mean fewer flush commands per frame
+        and faster full redraws; fewer lines leave more heap. Applications
+        that need the RAM lower it and measure the refresh time.
+
+endmenu

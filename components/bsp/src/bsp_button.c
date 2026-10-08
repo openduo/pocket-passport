@@ -6,7 +6,10 @@
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
+#include "driver/gpio.h"
+#include "esp_attr.h"
 #include "esp_log.h"
+#include "esp_sleep.h"
 #include "esp_timer.h"
 
 static const char *TAG = "bsp_btn";
@@ -36,6 +39,10 @@ static bsp_adc_button_t s_drivers[BSP_BTN_COUNT];
 static int64_t s_sample_time;
 static int s_sample_mv = -1;
 static bool s_sample_valid;
+// Light-sleep wake (bsp_button_enable_sleep_wake).
+static bool s_sleep_wake;
+static bool s_wake_armed;           // button timer task only
+static volatile int64_t s_wake_us;
 
 static uint8_t button_level(button_driver_t *driver) {
     if (!s_ready) return BUTTON_INACTIVE;
@@ -79,6 +86,7 @@ static void cb_press (void *a, void *u) { on_event(a, u, BSP_BTN_PRESS);  }
 static void cb_click (void *a, void *u) { on_event(a, u, BSP_BTN_CLICK);  }
 static void cb_double(void *a, void *u) { on_event(a, u, BSP_BTN_DOUBLE); }
 static void cb_long  (void *a, void *u) { on_event(a, u, BSP_BTN_LONG);   }
+static void cb_release(void *a, void *u) { on_event(a, u, BSP_BTN_RELEASE); }
 
 // 初始化中途失败时先停掉所有 button driver，再释放本文件持有的校准与 ADC unit。
 // button driver 仍在轮询时不能先删 ADC，否则 timer callback 会访问失效句柄。
@@ -87,6 +95,13 @@ static void button_cleanup(void) {
     s_user = NULL;
     s_ready = false;
     s_sample_valid = false;
+    if (s_sleep_wake) {
+        gpio_intr_disable(BSP_BTN_GPIO);
+        gpio_wakeup_disable(BSP_BTN_GPIO);
+        gpio_isr_handler_remove(BSP_BTN_GPIO);
+        s_sleep_wake = false;
+        s_wake_armed = false;
+    }
 
     for (int i = BSP_BTN_COUNT - 1; i >= 0; i--) {
         if (!s_btn[i]) continue;
@@ -120,6 +135,7 @@ static esp_err_t register_callbacks(button_handle_t button, void *index) {
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_SINGLE_CLICK, NULL, cb_click, index);
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_DOUBLE_CLICK, NULL, cb_double, index);
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_LONG_PRESS_START, NULL, cb_long, index);
+    if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_PRESS_UP, NULL, cb_release, index);
     return e;
 }
 
@@ -205,6 +221,76 @@ esp_err_t bsp_button_init(bsp_btn_cb_t cb, void *user) {
     return ESP_OK;
 }
 
+// --- Light-sleep wake ---------------------------------------------------------
+// iot_button stops its poll timer once every driver reports enable_power_save
+// and no key is active, then calls enter_power_save. The level interrupt on
+// the ladder pad restarts the timer (iot_button_power_save_wakeup_isr, which
+// also disables the interrupt) and, during light sleep, wakes the chip.
+
+static void IRAM_ATTR wake_isr(void *arg) {
+    (void)arg;
+    s_wake_us = esp_timer_get_time();
+    iot_button_power_save_wakeup_isr(BSP_BTN_GPIO);
+}
+
+// Called once per key (three drivers share the pad): arm only once.
+static esp_err_t enter_power_save(button_driver_t *driver) {
+    (void)driver;
+    if (s_wake_armed) return ESP_OK;
+    esp_err_t e = gpio_wakeup_enable(BSP_BTN_GPIO, GPIO_INTR_LOW_LEVEL);
+    if (e == ESP_OK) e = gpio_intr_enable(BSP_BTN_GPIO);
+    if (e == ESP_OK) s_wake_armed = true;
+    return e;
+}
+
+static esp_err_t exit_power_save(button_driver_t *driver) {
+    (void)driver;
+    gpio_intr_disable(BSP_BTN_GPIO);
+    s_wake_armed = false;
+    return gpio_wakeup_disable(BSP_BTN_GPIO);
+}
+
+static int32_t wake_gpio(button_driver_t *driver) {
+    (void)driver;
+    return BSP_BTN_GPIO;
+}
+
+esp_err_t bsp_button_enable_sleep_wake(void) {
+    if (!s_ready) return ESP_ERR_INVALID_STATE;
+    if (s_sleep_wake) return ESP_OK;
+    // The ADC channel setup left the pad analog with its input buffer off;
+    // the level interrupt needs the digital input. ADC sampling uses the
+    // analog path and is unaffected. The ladder has an external 10k pull-up.
+    esp_err_t e = gpio_set_direction(BSP_BTN_GPIO, GPIO_MODE_INPUT);
+    if (e == ESP_OK) e = gpio_set_pull_mode(BSP_BTN_GPIO, GPIO_FLOATING);
+    if (e == ESP_OK) e = gpio_set_intr_type(BSP_BTN_GPIO, GPIO_INTR_LOW_LEVEL);
+    if (e == ESP_OK) {
+        e = gpio_install_isr_service(0);
+        if (e == ESP_ERR_INVALID_STATE) e = ESP_OK;  // already installed
+    }
+    if (e == ESP_OK) e = gpio_isr_handler_add(BSP_BTN_GPIO, wake_isr, NULL);
+    // The handler is added enabled; it stays off until the poll goes idle.
+    if (e == ESP_OK) e = gpio_intr_disable(BSP_BTN_GPIO);
+    if (e == ESP_OK) e = esp_sleep_enable_gpio_wakeup();
+    if (e != ESP_OK) {
+        ESP_LOGE(TAG, "sleep wake setup failed: %s", esp_err_to_name(e));
+        return e;
+    }
+    for (int i = 0; i < BSP_BTN_COUNT; i++) {
+        s_drivers[i].base.enter_power_save = enter_power_save;
+        s_drivers[i].base.exit_power_save = exit_power_save;
+        s_drivers[i].base.get_gpio_num = wake_gpio;
+        s_drivers[i].base.enable_power_save = true;  // last: the poll task reads it
+    }
+    s_sleep_wake = true;
+    ESP_LOGI(TAG, "sleep wake on GPIO%d low level", BSP_BTN_GPIO);
+    return ESP_OK;
+}
+
+int64_t bsp_button_last_wake_us(void) {
+    return s_wake_us;
+}
+
 int bsp_button_read_mv(void) {
     // 读的是 bsp_button_init() 建好、并与 iot_button 共用的那一路 ADC。
     // 单次采样与组件的按键轮询互不干扰(oneshot 内部自带锁)。
@@ -214,4 +300,16 @@ int bsp_button_read_mv(void) {
     if (adc_oneshot_read(s_adc, BSP_BTN_ADC_CHANNEL, &raw) != ESP_OK) return -1;
     if (adc_cali_raw_to_voltage(s_cali, raw, &mv) != ESP_OK) return -1;
     return mv;
+}
+
+bool bsp_button_any_down(void) {
+    // The windows are contiguous from 0 mV; released reads ~3300 mV.
+    int mv = bsp_button_read_mv();
+    return mv >= 0 && mv < BTN_MV[BSP_BTN_COUNT - 1][1];
+}
+
+esp_err_t bsp_button_enable_deep_sleep_wake(void) {
+    // GPIO0 is in the RTC domain on the C3 (GPIO0-5 can wake from deep
+    // sleep); the ladder's external 10k pull-up keeps it high while released.
+    return esp_deep_sleep_enable_gpio_wakeup(1ULL << BSP_BTN_GPIO, ESP_GPIO_WAKEUP_GPIO_LOW);
 }

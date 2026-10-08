@@ -2,6 +2,7 @@
 // ES8311 音频 codec:I2C 走控制口(复用 bsp_i2c 的共享总线),I2S 走全双工数据口。
 #pragma once
 
+#include "driver/i2s_common.h"
 #include "esp_err.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -44,3 +45,11 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes);
 
 // 输出音量 0..100(%)。
 void bsp_audio_set_volume(uint8_t percent);
+
+// Diagnostic hook: register I2S event callbacks for TX and RX. Must be called
+// before bsp_audio_init(); the driver accepts callbacks only while a channel
+// is not yet enabled. Either pointer may be NULL. Callbacks run in ISR context.
+// Typical use: count TX DMA starvation (on_send_q_ovf) and RX overflow
+// (on_recv_q_ovf).
+esp_err_t bsp_audio_set_i2s_callbacks(const i2s_event_callbacks_t *tx,
+                                      const i2s_event_callbacks_t *rx, void *user);

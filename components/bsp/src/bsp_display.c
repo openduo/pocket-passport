@@ -240,6 +240,25 @@ void bsp_display_backlight(uint8_t percent) {
     ledc_update_duty(BSP_BL_LEDC_MODE, BSP_BL_LEDC_CHANNEL);
 }
 
+esp_err_t bsp_display_sleep(bool sleep) {
+    if (!s_ready || !s_panel) return ESP_ERR_INVALID_STATE;
+    esp_err_t e;
+    if (sleep) {
+        // Automatic light sleep isolates (floats) every pin by default
+        // (ESP_SLEEP_GPIO_RESET_WORKAROUND). The backlight enable and the chip
+        // select keep their driven levels instead: backlight off, CS high.
+        gpio_sleep_sel_dis(BSP_LCD_BL);
+        gpio_sleep_sel_dis(BSP_LCD_CS);
+        e = esp_lcd_panel_disp_on_off(s_panel, false);
+        if (e == ESP_OK) e = esp_lcd_panel_disp_sleep(s_panel, true);
+    } else {
+        e = esp_lcd_panel_disp_sleep(s_panel, false);
+        if (e == ESP_OK) e = esp_lcd_panel_disp_on_off(s_panel, true);
+    }
+    if (e != ESP_OK) ESP_LOGE(TAG, "panel %s failed: %s", sleep ? "sleep" : "wake", esp_err_to_name(e));
+    return e;
+}
+
 esp_err_t bsp_display_prepare_deep_sleep(void) {
     esp_err_t first_error = ESP_OK;
     if (!s_ready || !s_panel) {

@@ -4,6 +4,8 @@
 
 #include "esp_err.h"
 
+#include <stdbool.h>
+
 // 按键索引。数量用 bsp_pins.h 的 BSP_BTN_COUNT(硬件属性,归引脚表管),
 // 这里不再定义尾项计数,避免出现 BSP_BTN_COUNT / BSP_BTN_COUNT_ 两个近似名字。
 typedef enum {
@@ -17,6 +19,8 @@ typedef enum {
     BSP_BTN_CLICK,       // 单击(按下并抬起)
     BSP_BTN_DOUBLE,      // 双击
     BSP_BTN_LONG,        // 长按
+    BSP_BTN_RELEASE,     // Released after any press; pairs with BSP_BTN_PRESS
+                         // for hold gestures timed by the application.
 } bsp_btn_ev_t;
 
 // 按键事件回调。运行于 button 组件使用的共享 esp_timer 任务,只能入队或执行同等级
@@ -31,3 +35,22 @@ esp_err_t bsp_button_init(bsp_btn_cb_t cb, void *user);
 // ★ 换了分压/上拉阻值后,用它测出自己的三档电压,再改 bsp_pins.h 的 BSP_BTN_MV_TABLE。
 // 读取失败返回 -1。
 int bsp_button_read_mv(void);
+
+// Light-sleep wake for the key ladder (opt-in, not reversible). Polling stops
+// while no key is down; a low level on BSP_BTN_GPIO wakes the chip and the
+// interrupt restarts polling, so the first press is decoded as usual (no key
+// event is lost; it arrives one poll period plus debounce after the edge, as
+// when polling). Call after a successful bsp_button_init().
+esp_err_t bsp_button_enable_sleep_wake(void);
+
+// esp_timer time (us) of the last wake interrupt, 0 if none. Diagnostic.
+int64_t bsp_button_last_wake_us(void);
+
+// True while any key of the ladder is down (one ADC read; false on a read
+// error). Works before and after bsp_button_init's polling starts.
+bool bsp_button_any_down(void);
+
+// Deep-sleep wake on the key ladder: a low level on BSP_BTN_GPIO (any key,
+// the ladder cannot tell them apart without the ADC) starts the chip again.
+// Call right before esp_deep_sleep_start().
+esp_err_t bsp_button_enable_deep_sleep_wake(void);

@@ -708,6 +708,16 @@ static void host_task(void *arg)
     nimble_port_freertos_deinit();
 }
 
+#if POCKET_DEBUG_INJECTION
+// Host task only: set around the delivery of an injected message.
+static bool s_injecting;
+
+bool pocket_ble_debug_injecting(void)
+{
+    return s_injecting;
+}
+#endif
+
 #if CONFIG_POCKET_DEBUG_MEMPROBE
 // Text cycled into the injected reply: common CJK covered by pocket_cjk_20.
 static const char s_probe_text[] =
@@ -742,7 +752,9 @@ static void on_probe(struct ble_npl_event *ev)
     }
     ESP_LOGI(TAG, "memprobe: inject type 0x%02x reply_id %lu len %u", type,
              (unsigned long)s_probe_reply_id, (unsigned)len);
+    s_injecting = true;
     if (!s_cb.on_message || !s_cb.on_message(type, b, len, false)) xSemaphoreGive(s_rx_free);
+    s_injecting = false;
 }
 
 void pocket_ble_debug_inject_reply(uint32_t reply_id, size_t text_bytes)
@@ -769,7 +781,9 @@ static void on_flow(struct ble_npl_event *ev)
     memcpy(s_rx_pdu, s_flow_pdu[i], s_flow_len[i]);
     ESP_LOGI(TAG, "flowprobe: inject type 0x%02x len %u", s_rx_pdu[0],
              (unsigned)s_flow_len[i] - POCKET_PDU_HEADER_BYTES);
+    s_injecting = true;
     rx_pdu(s_flow_len[i]);
+    s_injecting = false;
 }
 
 void pocket_ble_debug_inject_pdu(uint8_t type, bool more, const uint8_t *payload, size_t len)

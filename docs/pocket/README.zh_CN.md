@@ -194,7 +194,7 @@ BLE 连接可能一直保持，新的 App 进程会重新订阅，但 CCCD 的�
 | 回答副本 | 除 BLE 重组缓冲外，RAM 里只有一份（屏幕缓冲） | 大的手机消息直接从重组缓冲读取，拷贝完即释放。 |
 
 内存探针固件（`sdkconfig.memprobe.defaults`）按脚本依次记录堆、LVGL 内存池、刷新耗时和任务栈：空闲、
-设置、编码、4 KB 回答、存入六条回答、在历史里来回翻、重启一次。
+设置、编码、4 KB 回答、再注入六条回答、在历史里来回翻、重启一次。
 
 ## 音频
 
@@ -244,12 +244,13 @@ idf.py -B build-debug -p <PORT> app-flash monitor
 | 叠加配置（在 `sdkconfig.defaults` 之上） | Kconfig | 作用 |
 | --- | --- | --- |
 | `sdkconfig.debug.defaults` | `POCKET_DEBUG_STATS` | 在串口输出堆、CPU、音频和链路统计；每次息屏结束后输出一行 `POCKET: standby`。 |
-| + `sdkconfig.memprobe.defaults` | `POCKET_DEBUG_MEMPROBE` | 开机 30 s 后：整屏重绘计时、设置、10 s 编码、注入 4 KB 回答、存入六条回答、翻看历史、重启一次，并记录堆和 LVGL 内存池。 |
+| + `sdkconfig.memprobe.defaults` | `POCKET_DEBUG_MEMPROBE` | 开机 30 s 后：整屏重绘计时、设置、10 s 编码、注入 4 KB 回答、再注入六条回答、翻看历史、重启一次，并记录堆和 LVGL 内存池。 |
 | + `sdkconfig.flowprobe.defaults` | `POCKET_DEBUG_FLOWPROBE` | 开机 30 s 后：不录音直接进入等待回答，再经真实的接收路径注入 `RESULT` 0、`WORK` 1 和 3、`REPLY_DONE` 0。不向手机发送任何内容。 |
 | + `sdkconfig.sleeptest.defaults` | `POCKET_DEBUG_IGNORE_USB_HOST`、`POCKET_DEBUG_DEEP_SLEEP_S`、`POCKET_DEBUG_DEEP_SLEEP_TIMER_S` | 接着 USB 主机也会息屏，45 s 没有事件就进入 deep sleep，20 s 后由定时器唤醒，方便在串口上观察 deep sleep 和之后的启动。它会一直循环：请在设备醒着的时候烧录，用完换回正常固件。 |
 
 每种固件用单独的构建目录（`build-debug`、`build-memprobe`、`build-flowprobe`、`build-sleeptest`），
 `SDKCONFIG_DEFAULTS` 按顺序列出叠加配置，写法同上面的调试固件命令。
+探针注入的回答从不写入 `history` 分区，之后烧录的正常固件不会显示它们；翻看历史只覆盖已经保存的回答。
 
 ## 重新生成素材
 

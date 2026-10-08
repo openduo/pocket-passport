@@ -129,7 +129,8 @@ config POCKET_DEBUG_MEMPROBE
         RAM budget measurement: replays the init heap marks, then captures
         and encodes into the hold ring (nothing is sent), injects a 4 KB
         REPLY through the BLE receive path, scrolls it and ends it, with a
-        heap/LVGL/stack snapshot after each step. Debug images only
+        heap/LVGL/stack snapshot after each step. Injected replies are never
+        stored in the history partition. Debug images only
         (sdkconfig.memprobe.defaults); never set in a release image.
 
 config POCKET_DEBUG_MEMPROBE_START_S

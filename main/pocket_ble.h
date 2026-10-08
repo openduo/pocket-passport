@@ -79,6 +79,15 @@ void pocket_ble_debug_inject_pdu(uint8_t type, bool more, const uint8_t *payload
 void pocket_ble_debug_inject_msg(uint8_t type, const uint8_t *payload, size_t len);
 #endif
 
+#if CONFIG_POCKET_DEBUG_MEMPROBE || CONFIG_POCKET_DEBUG_FLOWPROBE
+#define POCKET_DEBUG_INJECTION 1
+// True while the host task delivers a probe-injected message; on_message
+// reads it so injected replies are never stored in the history partition.
+bool pocket_ble_debug_injecting(void);
+#else
+#define POCKET_DEBUG_INJECTION 0
+#endif
+
 #if CONFIG_POCKET_DEBUG_MEMPROBE
 // Debug memory probe: delivers a REPLY (or REPLY_DONE when text_bytes is 0)
 // through the receive path on the NimBLE host task, as if the phone had sent

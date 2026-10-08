@@ -210,7 +210,7 @@ volume 70 %) through the ES8311 and costs no RAM; turning the setting on plays i
 | Reply copies | One in RAM (the screen's buffer) besides the BLE reassembly buffer | Large phone messages are read in place from the reassembly buffer and released after the copy. |
 
 The memory probe image (`sdkconfig.memprobe.defaults`) logs heap, LVGL pool, refresh time and task
-stacks through a scripted sequence: idle, settings, encoding, a 4 KB reply, six stored replies, a
+stacks through a scripted sequence: idle, settings, encoding, a 4 KB reply, six more replies, a
 walk through the history and one restart.
 
 ## Audio
@@ -266,12 +266,14 @@ messages or cycle deep sleep.
 | Overlay (on top of `sdkconfig.defaults`) | Kconfig | What it does |
 | --- | --- | --- |
 | `sdkconfig.debug.defaults` | `POCKET_DEBUG_STATS` | Heap, CPU, audio and link statistics on the console; one `POCKET: standby` line after each dark period. |
-| + `sdkconfig.memprobe.defaults` | `POCKET_DEBUG_MEMPROBE` | 30 s after boot: timed full redraws, the settings, 10 s of encoding, an injected 4 KB reply, six stored replies, a history walk and one restart, with heap and LVGL pool marks. |
+| + `sdkconfig.memprobe.defaults` | `POCKET_DEBUG_MEMPROBE` | 30 s after boot: timed full redraws, the settings, 10 s of encoding, an injected 4 KB reply, six more injected replies, a history walk and one restart, with heap and LVGL pool marks. |
 | + `sdkconfig.flowprobe.defaults` | `POCKET_DEBUG_FLOWPROBE` | 30 s after boot: a reply wait without recording, then `RESULT` 0, `WORK` 1 and 3 and `REPLY_DONE` 0 injected through the real receive path. Sends nothing to the phone. |
 | + `sdkconfig.sleeptest.defaults` | `POCKET_DEBUG_IGNORE_USB_HOST`, `POCKET_DEBUG_DEEP_SLEEP_S`, `POCKET_DEBUG_DEEP_SLEEP_TIMER_S` | Darkens the screen on a USB host, deep-sleeps after 45 s without an event and wakes by timer after 20 s, so deep sleep and the boot after it can be followed on the console. It cycles forever: flash it while the device is awake and replace it afterwards. |
 
 Build each in its own directory (`build-debug`, `build-memprobe`, `build-flowprobe`, `build-sleeptest`)
 with `SDKCONFIG_DEFAULTS` listing the overlays in order, as in the debug command above.
+Replies injected by a probe are never written to the `history` partition, so a normal image
+flashed afterwards does not show them; the history walk covers the replies already stored.
 
 ## Regenerating assets
 

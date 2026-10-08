@@ -85,6 +85,7 @@ typedef struct {
         // initializer only zeroes its first member).
         pocket_rx_msg_t msg;
     };
+    bool injected;              // EV_MSG: from a debug probe, never stored
 } event_t;
 
 static QueueHandle_t s_q;
@@ -206,6 +207,9 @@ static void on_pair_done(bool ok)
 static bool on_message(uint8_t type, const uint8_t *payload, size_t len, bool truncated)
 {
     event_t e = { .kind = EV_MSG, .t_ms = now_ms() };
+#if POCKET_DEBUG_INJECTION
+    e.injected = pocket_ble_debug_injecting();
+#endif
     if (!pocket_rx_msg_pack(&e.msg, type, payload, len, truncated)) {
         post(&e);
         return false;
@@ -350,9 +354,14 @@ static uint16_t hist_u16(uint32_t v)
     return v > UINT16_MAX ? UINT16_MAX : (uint16_t)v;
 }
 
+// The shown reply came from a debug probe: it is never written to the history
+// partition, which a later normal image would show.
+static bool s_reply_injected;
+
 // Puts a stored reply's text into the screen's buffer and shows it.
 static void hist_show(const pocket_hist_entry_t *e, bool at_end, pocket_fx_t *fx)
 {
+    s_reply_injected = false;  // a stored reply is a real one
     int n = -1;
     if (bsp_lvgl_lock(-1)) {
         size_t cap;
@@ -381,6 +390,12 @@ static void hist_mark(const pocket_hist_entry_t *e, pocket_fx_t *fx)
 static void hist_save(pocket_fx_t *fx)
 {
     if (!s_hist_ok) return;
+#if POCKET_DEBUG_INJECTION
+    if (s_reply_injected) {
+        ESP_LOGI(TAG, "reply %lu injected by a probe: not stored", (unsigned long)s_m.reply_id);
+        return;
+    }
+#endif
     pocket_hist_entry_t e;
     if (!pocket_hist_find(&s_hist, s_m.reply_id, &e)) {
         size_t len;
@@ -536,6 +551,9 @@ static void handle(event_t *e)
             const bool stored = d.type == POCKET_MSG_REPLY && s_hist_ok &&
                                 pocket_hist_find(&s_hist, d.reply_id, &found);
             pocket_model_downlink(&s_m, &d, stored, e->t_ms, &fx);
+            if (d.type == POCKET_MSG_REPLY && d.reply_id == s_m.reply_id) {
+                s_reply_injected = e->injected;
+            }
             if (stored && d.reply_id == s_m.reply_id) hist_mark(&found, &fx);
             if ((fx.flags & (POCKET_FX_REPLY_TEXT | POCKET_FX_TRANSCRIPT_TEXT)) &&
                 bsp_lvgl_lock(-1)) {

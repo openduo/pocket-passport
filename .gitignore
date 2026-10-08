@@ -11,3 +11,15 @@ managed_components/
 /.agents/skills/passport-build
 /.agents/skills/passport-device-test
 /.agents/skills/passport-debug
+
+# Private, machine-local context (pocket fork): never committed.
+CLAUDE.local.md
+/.agents/
+/.claude/
+# Host-side scratch: font download cache, avatar previews, superseded mockups.
+/tools/pocket/.cache/
+/docs/pocket/mockups/drafts/
+# Build directories of the release and debug/probe images (build-release, build-debug, ...).
+/build-*/
+# Temporary gate copy made by tools/pocket/validate_macos.sh.
+/tools/.validate-macos.*

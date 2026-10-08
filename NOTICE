@@ -1,0 +1,59 @@
+DuoDuo Pocket firmware for the FoloToy AI Passport
+====================================================
+
+This repository is a fork of FoloToy AI Passport (https://github.com/folotoy/ai-passport)
+and carries code under two licences and font data under a third. The DuoDuo names and the
+screen mockups are brand assets with no open licence.
+
+Licences of this repository's files
+-----------------------------------
+
+| Files | Licence |
+| --- | --- |
+| Files from upstream folotoy/ai-passport, including the ones this fork modifies | MIT, Copyright (c) 2026 FoloToy (LICENSE) |
+| New files of the pocket fork: main/pocket_*, tools/pocket/, tests/test_pocket_*, tests/pocket_check.h, the new test stubs, assets/images/avatar/ (SVGs and the generated pocket_avatars.c/.h), docs/pocket/*.md, sdkconfig.*.defaults overlays, components/bsp/Kconfig | FSL-1.1-Apache-2.0, Copyright 2026 openduo (LICENSE-FSL-1.1-Apache-2.0) |
+| Brand assets: the screen mockups in docs/pocket/mockups/ and the DuoDuo / OpenDuo names | No open licence, all rights reserved by openduo (see "Brand assets" below) |
+| Glyph data in assets/fonts/pocket_cjk_20.c and assets/fonts/pocket_digits_44.c, converted from Noto Sans SC | SIL Open Font License 1.1 (assets/fonts/LICENSE-OFL-1.1.txt) |
+
+Each source file states its licence in an SPDX header. A source file without a header comes from
+upstream and is MIT. The FSL-1.1-Apache-2.0 files become available under Apache-2.0 two years
+after each version is published, as that licence describes.
+
+Third-party components in the firmware image
+--------------------------------------------
+
+Fetched at build time (ESP-IDF and the component manager; versions in dependencies.lock),
+not stored in this repository:
+
+| Component | Version | Licence |
+| --- | --- | --- |
+| ESP-IDF, including FreeRTOS, NVS, the BLE controller library and the drivers | 5.5.3 | Apache-2.0 (FreeRTOS kernel: MIT) |
+| Apache NimBLE BLE host (part of ESP-IDF) | ESP-IDF 5.5.3 | Apache-2.0, with its NOTICE |
+| LVGL (lvgl/lvgl) | 9.5.0 | MIT |
+| espressif/esp_lvgl_port | 2.9.0 | Apache-2.0 |
+| espressif/esp_codec_dev | 1.6.2 | Apache-2.0 |
+| espressif/button | 4.2.0 | Apache-2.0 |
+| espressif/cmake_utilities | 1.1.1 | Apache-2.0 |
+| espressif/esp_audio_codec (prebuilt library; the Opus encoder) | 2.5.0 | Espressif Modified MIT: use only with Espressif products. Its third-party code, including the Opus codec (BSD-3-Clause, Xiph.Org Foundation and contributors), is listed at https://docs.espressif.com/projects/esp-adf/en/latest/COPYRIGHT.html |
+
+Stored in this repository:
+
+| Asset | Origin | Licence |
+| --- | --- | --- |
+| Noto Sans SC 2.004 glyphs (assets/fonts/pocket_*.c) | https://github.com/notofonts/noto-cjk, tag Sans2.004, converted by tools/pocket/gen_fonts.sh with lv_font_conv 1.5.3 | OFL-1.1, Copyright 2014-2021 Adobe, Reserved Font Name "Source" |
+| DuoDuo avatar poses (assets/images/avatar/*.svg and the generated pocket_avatars.c/.h) | From openduo/ambient (web/avatar), dark variant | FSL-1.1-Apache-2.0 |
+| Screen mockups (docs/pocket/mockups/) | Rendered by tools/pocket/render_mockups.py from this repository's font, avatars and UI copy | openduo brand asset, no open licence (glyphs inside: OFL-1.1) |
+| FoloToy logo, wordmarks and product images (assets/images/home.jpg, logo*.png, readme-hardware-specs.png, docs/brand/) | Upstream folotoy/ai-passport | FoloToy's marks; see upstream |
+
+A binary distribution of the firmware must carry this NOTICE, LICENSE, LICENSE-FSL-1.1-Apache-2.0,
+assets/fonts/LICENSE-OFL-1.1.txt and the notices of the components above.
+
+Brand assets
+------------
+
+The DuoDuo and OpenDuo names (trademarks) and the pocket screen mockups are openduo brand
+assets. Neither MIT nor FSL-1.1-Apache-2.0 covers them, and no other licence is granted. A fork
+or derived product must replace them (the mockups, the device name "DuoDuo Pocket" and the
+多多 / 多多随身 names in main/pocket_strings.h) before distribution. The avatar images follow
+the code licence, FSL-1.1-Apache-2.0.
+FoloToy names, logos and marks remain FoloToy's.

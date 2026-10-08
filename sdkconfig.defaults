@@ -87,8 +87,9 @@ CONFIG_BT_CTRL_MODEM_SLEEP=y
 CONFIG_BT_CTRL_MODEM_SLEEP_MODE_1=y
 CONFIG_BT_CTRL_LPCLK_SEL_MAIN_XTAL=y
 CONFIG_BT_CTRL_MAIN_XTAL_PU_DURING_LIGHT_SLEEP=y
-# Keep the CPU powered in light sleep. Powering it down saves ~100 uA of sleep
-# current but its context retention takes 1.68 KB of internal RAM (ESP-IDF
-# Kconfig figures), and standby already costs ~4 KB of IRAM code; the heap
-# must still fit a 4 KB reply message in one block (POCKET_MAX_MSG_BYTES).
+# Keep the CPU powered in light sleep for now. Powering it down saves ~100 uA
+# of sleep current for 1.68 KB of heap (ESP-IDF Kconfig figures); with the
+# largest free block at ~34 KB the heap can afford it. Off until an on-battery
+# measurement after release shows no regression in wake latency, BLE link
+# stability or sleep residency.
 CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP=n

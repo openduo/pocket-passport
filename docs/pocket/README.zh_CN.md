@@ -145,7 +145,7 @@ BLE 连接可能一直保持，新的 App 进程会重新订阅，但 CCCD 的�
 | BLE | 控制器 modem sleep，低功耗时钟用主晶振，light sleep 时晶振保持供电 | 板子没有 32 kHz 晶振（GPIO0/GPIO1 是按键分压和 LCD CS）；内部 136 kHz RC 达不到连接所需的 500 ppm |
 | 按键唤醒 | GPIO0（按键分压节点）作为数字输入，低电平唤醒芯片；没有按键按下时 5 ms 的按键轮询停止 | 每个按键都把节点拉到 595 mV 以下，低于 ESP32-C3 的 VIL 上限 825 mV。改用定时唤醒的话，每个轮询周期都要唤醒芯片，还会多出最多一个周期的延迟 |
 | light sleep 时的引脚 | ESP-IDF 把引脚隔离（`ESP_SLEEP_GPIO_RESET_WORKAROUND`）；背光和 LCD CS 保持原来的驱动电平 | 背光使能或片选悬空时状态不确定 |
-| light sleep 时 CPU 断电 | 关闭（`CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP=n`） | 能省约 100 uA，但要占 1.68 KB 内存。当初最大空闲块只有约 4 KB，正好一个回答消息的大小；回收内存后最大空闲块约 34 KB，这项选择待定 |
+| light sleep 时 CPU 断电 | 关闭（`CONFIG_PM_POWER_DOWN_CPU_IN_LIGHT_SLEEP=n`） | 能省约 100 uA，代价是 1.68 KB 堆内存；最大空闲块约 34 KB，堆负担得起。发布后在电池供电下实测唤醒延迟、链路稳定性和睡眠占比没有退化之前保持关闭 |
 | 预录音 | 息屏时暂停；从息屏状态按下时没有预录音 | 持续采集会一直持有音频锁，芯片无法睡眠 |
 | USB 主机 | 接着主机时不进 light sleep（`CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION`）；亮屏或接着主机时，应用每 `POCKET_USB_POLL_MS`（1 s）读一次 `usb_serial_jtag_is_connected()` | ESP-IDF 在 light sleep 时关掉 USB Serial/JTAG 引脚；睡过几次后 macOS 还留着这个设备，但串口没了，要重新插拔才回来，所以接在主机上睡眠的设备没法烧录和看日志 |
 

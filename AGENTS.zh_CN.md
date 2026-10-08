@@ -60,6 +60,18 @@
 
 产品概览与文档索引见 `docs/README.zh_CN.md`。详细的 AI 开发工作流（上下文建立、事实来源优先级、应用/BSP 边界、运行时规则、素材放置、交付格式）见 `docs/development/ai-guide.zh_CN.md`。Fork 专用流程见 `docs/fork-guide.zh_CN.md`，普通上游开发无需读取。
 
+## pocket 分支规则
+
+本仓库同时包含「多多随身」固件（[`docs/pocket/README.zh_CN.md`](docs/pocket/README.zh_CN.md)）。做 pocket 相关工作时：
+
+- 新文件带两行文件头 `Copyright 2026 openduo` / `SPDX-License-Identifier: FSL-1.1-Apache-2.0`；上游文件保持 MIT。头像图片随代码使用 FSL；多多名称和界面效果图是品牌素材，不提供开放许可；生成的字体数据为 OFL-1.1（见 `NOTICE`）。
+- `main/pocket_proto.*` 和 `docs/pocket/README.md` 里的 BLE 链路与手机 App 共用，两边一起改，并补主机测试。
+- 每个运行时常量都要命名并写明依据（`main/pocket_config.h`、`main/Kconfig.projbuild`）；还在等测量数据的值要注明。
+- 界面文案只放在 `main/pocket_strings.h`。改了文案或字符清单后，运行 `tools/pocket/gen_fonts.sh` 和 `tests/test_pocket_glyphs.py`。
+- macOS 上通过 `tools/pocket/validate_macos.sh` 运行验证门禁。
+- 用 `idf.py app-flash` 烧录以保留 NVS：绑定和设置都存在那里。
+- 与本机有关的信息（路径、设备、日志）放在被 git 忽略的 `CLAUDE.local.md` 或 `.agents/`。
+
 ## 必须执行的验证与交付格式
 
 迭代时运行最小相关检查，交付前运行完整门禁：

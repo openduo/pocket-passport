@@ -65,6 +65,18 @@ retain the separate authorization requirements for flashing, Git writes, and pub
 
 Use `docs/README.md` for the product overview and the documentation index. For the detailed AI development workflow — context setup, source-of-truth priority, application/BSP boundary, runtime invariants, material placement, and delivery format — read `docs/development/ai-guide.md`. Fork-specific workflow is in `docs/fork-guide.md` and is not required for ordinary upstream development.
 
+## Pocket fork rules
+
+This repository also carries the DuoDuo Pocket firmware ([`docs/pocket/README.md`](docs/pocket/README.md)). For pocket work:
+
+- New files carry the two-line header `Copyright 2026 openduo` / `SPDX-License-Identifier: FSL-1.1-Apache-2.0`; upstream files keep MIT. Avatar images follow the code licence (FSL). The DuoDuo names and the mockups are brand assets with no open licence; generated font data is OFL-1.1 (see `NOTICE`).
+- The BLE link in `main/pocket_proto.*` and `docs/pocket/README.md` is shared with the phone app. Change both together, with host tests.
+- Every runtime constant is named and states its basis (`main/pocket_config.h`, `main/Kconfig.projbuild`); values awaiting measurement say so.
+- UI copy lives only in `main/pocket_strings.h`. After changing it or the character inventory, run `tools/pocket/gen_fonts.sh` and `tests/test_pocket_glyphs.py`.
+- On macOS run the gate through `tools/pocket/validate_macos.sh`.
+- Flash with `idf.py app-flash` to keep NVS: bonds and settings live there.
+- Machine-specific context (paths, devices, logs) stays in the gitignored `CLAUDE.local.md` or `.agents/`.
+
 ## Required validation and delivery
 
 Run the smallest relevant check while iterating, then run the complete gate before delivery:

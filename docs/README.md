@@ -30,6 +30,19 @@
 
 ---
 
+> **DuoDuo Pocket fork.** This repository carries the pocket v1 firmware: a push-to-talk
+> accessory for the DuoDuo Pocket phone app. Hold OK and speak; the Passport streams Opus over an
+> encrypted BLE link to the phone and shows the answer.
+>
+> - Firmware guide, BLE link, build and flash: [`docs/pocket/README.md`](/docs/pocket/README.md)
+> - Security model and reporting: [`.github/SECURITY.md`](/.github/SECURITY.md#duoduo-pocket-firmware)
+> - Licences: upstream files keep the MIT license; new pocket files are FSL-1.1-Apache-2.0
+>   ([`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)); the CJK font glyphs are OFL-1.1.
+>   The DuoDuo / OpenDuo names and the screen mockups are brand assets with no open licence; forks
+>   must replace them. Third-party components are listed in [`NOTICE`](/NOTICE).
+
+---
+
 **FoloToy AI Passport** is an open wearable AI platform made for people to shape,
 remix, and create. Start with a simple idea, build your own experience, and make
 it anything—from a pocket companion to something no one has imagined yet.

@@ -30,6 +30,17 @@
 
 ---
 
+> **多多随身分支。** 本仓库包含 pocket v1 固件：「多多随身」手机 App 的按键说话配件。按住 OK
+> 说话，Passport 通过加密的 BLE 链路把 Opus 音频传给手机，并显示回答。
+>
+> - 固件说明、BLE 链路、构建与烧录：[`docs/pocket/README.zh_CN.md`](/docs/pocket/README.zh_CN.md)
+> - 安全模型与漏洞报告：[`.github/SECURITY.zh_CN.md`](/.github/SECURITY.zh_CN.md#多多随身固件)
+> - 许可证：上游文件保持 MIT 许可证；新增的 pocket 文件使用 FSL-1.1-Apache-2.0
+>   （[`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)）；中文字体字形使用 OFL-1.1。
+>   多多 / OpenDuo 名称和界面效果图是品牌素材，不提供开放许可，分支项目必须替换。第三方组件见 [`NOTICE`](/NOTICE)。
+
+---
+
 **FoloToy AI Passport** 是开放的可穿戴 AI 平台，人人都可以动手改造、自由创作。
 从一个简单想法开始，打造专属体验——无论是随身伙伴、小工具、游戏，还是任何新点子。
 

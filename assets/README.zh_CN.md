@@ -15,6 +15,14 @@
 - 添加字库前评估 Flash 与内部 RAM 影响；ESP32-C3 无 PSRAM。
 - 不提交许可不允许分发的字库。
 
+pocket 固件字库（由 `tools/pocket/gen_fonts.sh` 生成；工具为 FSL-1.1-Apache-2.0，字形数据为 SIL OFL 1.1）：
+
+| 文件 | 内容 | 来源与转换 |
+| --- | --- | --- |
+| `fonts/pocket_cjk_20.c` | 20 px，4 bpp，7667 个字形：ASCII、GB2312、常用标点、Latin-1、欧元符号、U+25A1；约 1.5 MB Flash | Noto Sans SC 2.004 SubsetOTF（`notofonts/noto-cjk` 标签 `Sans2.004`，脚本内固定 SHA-256），`lv_font_conv` 1.5.3，`--no-compress` |
+| `fonts/pocket_digits_44.c` | 44 px，4 bpp，配对码用的数字和空格；约 4 KB | 同一来源与转换工具 |
+| `fonts/pocket_cjk_charset.txt` | `pocket_cjk_20` 的字符清单 | `tools/pocket/gen_charset.py`（由 GB2312 编码表推导） |
+
 ## 图片（images）
 
 可复用的源图与生成的显示资产放在 `images/`。
@@ -25,6 +33,7 @@
 | [`images/readme-hardware-specs.png`](images/readme-hardware-specs.png) | 2172 × 724，PNG RGBA | 保留为可选技术参考图，不再用于首页主视觉。于 2026-09-17 使用内置图像生成工具为本仓库生成；已根据文档中的硬件能力契约核对图中的六项标签与参数。 |
 | [`images/logo-wordmark.png`](images/logo-wordmark.png) | 1648 × 336，PNG RGBA | 从仓库原始 `images/logo.png` 中精确裁切并去除背景的黑色字标；用于中英文项目 README 的浅色主题。 |
 | [`images/logo-wordmark-dark.png`](images/logo-wordmark-dark.png) | 1648 × 336，PNG RGBA | 提取字标的白色版本；README 使用 `<picture>` 在 GitHub 深色主题下显示。 |
+| [`images/avatar/`](images/avatar/) | 9 个 SVG 姿态；生成的 `pocket_avatars.c/.h`：RGB565，176 × 125 和 64 × 46 | 多多头像集（深色版），来自 openduo/ambient（web/avatar）；FSL-1.1-Apache-2.0。由 `tools/pocket/gen_avatars.py` 转换（rsvg-convert，底色 `#0e0e0d`，约 450 KB Flash） |
 
 - 使用描述性命名，并记录尺寸、像素格式、转换步骤与目标路径。
 - 优先采用适合 240 × 320 RGB565 显示的格式，并纳入 Flash 与内部 RAM 考量。

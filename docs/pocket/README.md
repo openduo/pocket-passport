@@ -4,6 +4,8 @@
 
 # DuoDuo Pocket firmware (pocket v1)
 
+Product page: [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket).
+
 This fork turns the FoloToy AI Passport into a push-to-talk accessory of the DuoDuo Pocket
 phone app. Hold OK and speak: the Passport streams Opus over an encrypted BLE link, the phone
 uploads one voice note per press, and the latest answer is shown on the Passport screen.

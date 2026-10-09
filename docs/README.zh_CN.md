@@ -1,5 +1,9 @@
 [English](/docs/README.md) · **简体中文**
 
+> **多多随身分支。** 这个仓库把 AI Passport 做成「多多随身」App 的按键说话配件：固件说明见
+> [`docs/pocket/`](/docs/pocket/README.zh_CN.md)，产品介绍见
+> [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket)。本页其余内容是上游 FoloToy 的 README。
+
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
 <p align="center">

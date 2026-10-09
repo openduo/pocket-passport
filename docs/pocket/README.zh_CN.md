@@ -4,6 +4,8 @@
 
 # 多多随身固件（pocket v1）
 
+产品介绍：[openduo.ai/docs/pocket](https://openduo.ai/docs/pocket)。
+
 这个分支把 FoloToy AI Passport 做成「多多随身」手机 App 的按键说话配件。按住 OK 说话：
 Passport 通过加密的 BLE 链路发送 Opus 音频，手机把每次按键作为一条语音上传，最新的回答显示在
 Passport 屏幕上。

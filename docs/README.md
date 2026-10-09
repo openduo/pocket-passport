@@ -1,5 +1,10 @@
 **English** · [简体中文](/docs/README.zh_CN.md)
 
+> **DuoDuo Pocket fork.** This repository turns the AI Passport into the push-to-talk accessory of
+> the DuoDuo Pocket app: firmware guide in [`docs/pocket/`](/docs/pocket/README.md), product page at
+> [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket). The rest of this page is the upstream
+> FoloToy README.
+
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
 <p align="center">

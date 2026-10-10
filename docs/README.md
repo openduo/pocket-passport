@@ -1,9 +1,30 @@
 **English** · [简体中文](/docs/README.zh_CN.md)
 
-> **DuoDuo Pocket fork.** This repository turns the AI Passport into the push-to-talk accessory of
-> the DuoDuo Pocket app: firmware guide in [`docs/pocket/`](/docs/pocket/README.md), product page at
-> [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket). The rest of this page is the upstream
-> FoloToy README.
+<h1 align="center">DuoDuo Pocket firmware for the AI Passport</h1>
+
+This fork turns the FoloToy AI Passport into the push-to-talk accessory of the
+[DuoDuo Pocket](https://github.com/openduo/pocket-ios) iPhone app. Hold OK and speak; the Passport
+streams Opus over an encrypted BLE link to the phone and shows DuoDuo's answer. Product page:
+[openduo.ai/docs/pocket](https://openduo.ai/docs/pocket).
+
+<p align="center">
+  <img src="pocket/screens/passport.png" alt="The Passport screen: hold OK to talk, listening, thinking with the transcript, and DuoDuo's answer" width="100%">
+</p>
+<p align="center">
+  <img src="pocket/screens/app.png" alt="DuoDuo Pocket on iPhone: a conversation with a voice note from the Passport, hold to talk, ambient mode speaking an answer, and photos and files" width="100%">
+</p>
+
+- Firmware guide, BLE link, build and flash: [`docs/pocket/README.md`](/docs/pocket/README.md)
+- Security model and reporting: [`.github/SECURITY.md`](/.github/SECURITY.md#duoduo-pocket-firmware)
+- Licences: upstream files keep the MIT license; new pocket files are FSL-1.1-Apache-2.0
+  ([`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)); the CJK font glyphs are OFL-1.1.
+  The DuoDuo / OpenDuo names and the screen mockups are brand assets with no open licence; forks
+  must replace them. Third-party components are listed in [`NOTICE`](/NOTICE).
+
+> **The upstream FoloToy README starts below.** It describes the AI Passport platform this fork is
+> built on; the DuoDuo Pocket parts are above and in [`docs/pocket/`](/docs/pocket/README.md).
+
+---
 
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
@@ -32,19 +53,6 @@
   <a href="/docs/reference/README.md">Community projects</a> ·
   <a href="#documentation-index">Documentation</a>
 </p>
-
----
-
-> **DuoDuo Pocket fork.** This repository carries the pocket v1 firmware: a push-to-talk
-> accessory for the DuoDuo Pocket phone app. Hold OK and speak; the Passport streams Opus over an
-> encrypted BLE link to the phone and shows the answer.
->
-> - Firmware guide, BLE link, build and flash: [`docs/pocket/README.md`](/docs/pocket/README.md)
-> - Security model and reporting: [`.github/SECURITY.md`](/.github/SECURITY.md#duoduo-pocket-firmware)
-> - Licences: upstream files keep the MIT license; new pocket files are FSL-1.1-Apache-2.0
->   ([`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)); the CJK font glyphs are OFL-1.1.
->   The DuoDuo / OpenDuo names and the screen mockups are brand assets with no open licence; forks
->   must replace them. Third-party components are listed in [`NOTICE`](/NOTICE).
 
 ---
 

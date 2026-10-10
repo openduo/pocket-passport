@@ -1,8 +1,28 @@
 [English](/docs/README.md) · **简体中文**
 
-> **多多随身分支。** 这个仓库把 AI Passport 做成「多多随身」App 的按键说话配件：固件说明见
-> [`docs/pocket/`](/docs/pocket/README.zh_CN.md)，产品介绍见
-> [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket)。本页其余内容是上游 FoloToy 的 README。
+<h1 align="center">AI Passport 的多多随身固件</h1>
+
+这个分支把 FoloToy AI Passport 做成 [多多随身](https://github.com/openduo/pocket-ios) iPhone App
+的按键说话配件。按住 OK 说话，Passport 通过加密的 BLE 链路把 Opus 音频传给手机，并显示多多的回答。
+产品介绍见 [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket)。
+
+<p align="center">
+  <img src="pocket/screens/passport.png" alt="Passport 屏幕：按住 OK 说话、正在听、思考中显示转写、多多的回答" width="100%">
+</p>
+<p align="center">
+  <img src="pocket/screens/app.png" alt="iPhone 上的多多随身：带 Passport 语音消息的对话、按住说话、环境模式念出回答、照片和文件" width="100%">
+</p>
+
+- 固件说明、BLE 链路、构建与烧录：[`docs/pocket/README.zh_CN.md`](/docs/pocket/README.zh_CN.md)
+- 安全模型与漏洞报告：[`.github/SECURITY.zh_CN.md`](/.github/SECURITY.zh_CN.md#多多随身固件)
+- 许可证：上游文件保持 MIT 许可证；新增的 pocket 文件使用 FSL-1.1-Apache-2.0
+  （[`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)）；中文字体字形使用 OFL-1.1。
+  多多 / OpenDuo 名称和界面效果图是品牌素材，不提供开放许可，分支项目必须替换。第三方组件见 [`NOTICE`](/NOTICE)。
+
+> **以下是上游 FoloToy 的 README 原文。** 它介绍本分支所基于的 AI Passport 平台；多多随身相关内容见上文和
+> [`docs/pocket/`](/docs/pocket/README.zh_CN.md)。
+
+---
 
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
@@ -31,17 +51,6 @@
   <a href="/docs/reference/README.zh_CN.md">社区作品</a> ·
   <a href="#文档索引">开发文档</a>
 </p>
-
----
-
-> **多多随身分支。** 本仓库包含 pocket v1 固件：「多多随身」手机 App 的按键说话配件。按住 OK
-> 说话，Passport 通过加密的 BLE 链路把 Opus 音频传给手机，并显示回答。
->
-> - 固件说明、BLE 链路、构建与烧录：[`docs/pocket/README.zh_CN.md`](/docs/pocket/README.zh_CN.md)
-> - 安全模型与漏洞报告：[`.github/SECURITY.zh_CN.md`](/.github/SECURITY.zh_CN.md#多多随身固件)
-> - 许可证：上游文件保持 MIT 许可证；新增的 pocket 文件使用 FSL-1.1-Apache-2.0
->   （[`LICENSE-FSL-1.1-Apache-2.0`](/LICENSE-FSL-1.1-Apache-2.0)）；中文字体字形使用 OFL-1.1。
->   多多 / OpenDuo 名称和界面效果图是品牌素材，不提供开放许可，分支项目必须替换。第三方组件见 [`NOTICE`](/NOTICE)。
 
 ---
 

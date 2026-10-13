@@ -45,6 +45,12 @@ CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_HOST_BASED_PRIVACY=n
 CONFIG_BT_NIMBLE_NVS_PERSIST=y
+# The firmware restarts advertising itself on every failed or lost link
+# (pocket_ble.c). NimBLE's own re-attempt swallows the disconnect of a link
+# that times out while it is being set up, restarts advertising on its own,
+# and reports nothing when that fails, which left the device silent until
+# a power cycle.
+CONFIG_BT_NIMBLE_ENABLE_CONN_REATTEMPT=n
 
 # --- Pocket firmware ---
 # Bonds persist in NVS (above); LE Secure Connections only, no legacy pairing.

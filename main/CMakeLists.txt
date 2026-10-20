@@ -14,12 +14,12 @@ idf_component_register(
          "pocket_ring.c"
          "pocket_hist.c"
          "pocket_text.c"
-    INCLUDE_DIRS "." "../assets/images/avatar"
+    INCLUDE_DIRS "." "../assets/images/mark"
     REQUIRES bsp bt esp_partition esp_pm esp_driver_usb_serial_jtag esp_timer esp_driver_i2s esp_app_format nvs_flash lvgl esp_lvgl_port
 )
 
 target_sources(${COMPONENT_LIB} PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/pocket_cjk_20.c"
     "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/pocket_digits_44.c"
-    "${CMAKE_CURRENT_LIST_DIR}/../assets/images/avatar/pocket_avatars.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../assets/images/mark/pocket_mark.c"
 )

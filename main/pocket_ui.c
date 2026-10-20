@@ -4,8 +4,8 @@
 #include "pocket_ui.h"
 
 #include "pocket_audio.h"
-#include "pocket_avatars.h"
 #include "pocket_config.h"
+#include "pocket_mark.h"
 #include "pocket_strings.h"
 #include "pocket_text.h"
 
@@ -13,6 +13,7 @@
 #include "esp_timer.h"
 #include "lvgl.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -24,7 +25,6 @@ LV_FONT_DECLARE(pocket_digits_44);
 // Colours: dark theme tokens of the DuoDuo web app (openduo/ambient,
 // packages/channel-ambient/web/tokens/colors.css).
 #define C_BG             0x0e0e0d
-#define C_SURFACE        0x141413
 #define C_BRAND          0x1fd9de
 #define C_BRAND_TINT     0x0c2b2e
 #define C_BRAND_DIM      0x2a6c6f
@@ -41,7 +41,7 @@ LV_FONT_DECLARE(pocket_digits_44);
 // Layout (px, 240x320 panel with a 30 px corner mask).
 #define SCR_W            240
 #define TEXT_W           200
-#define AVATAR_Y         40
+#define MARK_Y           40
 #define TITLE_Y          176
 #define HINT_Y           282
 #define SET_ROW_Y        72
@@ -53,29 +53,31 @@ LV_FONT_DECLARE(pocket_digits_44);
 #define SET_ROWS_VISIBLE 5
 _Static_assert(POCKET_SET_COUNT > SET_ROWS_VISIBLE, "the settings scroll indicator divides by the overflow");
 #define HEADER_Y         36
+// Header title right of the small mark, 10 px apart.
+#define HEAD_TITLE_X     (REPLY_X + POCKET_MARK_SMALL_PX + 10)
 #define DIVIDER_Y        88
 #define REPLY_X          20
 #define REPLY_Y          94
 #define REPLY_W          200
 #define REPLY_H          188   // 7 lines of 26 px plus padding
 #define SCROLLBAR_X      226
-#define LEVEL_W          160
 #define WORK_DOTS        3
 #define WORK_DOT_PX      6
 #define WORK_DOT_GAP     6
-// Peak treated as a full level bar (about -12 dBFS): speech at arm's length
-// fills most of the bar. Display only.
+// Peak treated as full level of the voice bars (about -12 dBFS): speech at
+// arm's length moves the bars most of their range. Display only.
 #define LEVEL_FULL_SCALE 8192
-// Refresh of the recording clock and level bar. Display only, a visual choice:
-// the clock lags by at most this, and the bar follows every 5th audio frame.
+// Refresh of the recording clock and voice bars. Display only, a visual choice:
+// the clock lags by at most this, and the bars follow every 5th audio frame.
 #define REC_REFRESH_MS   100
 
 typedef struct {
     lv_obj_t *scr;
     lv_obj_t *dot, *battery;
-    lv_obj_t *avatar_large, *col, *title, *sub, *clock, *level, *hint, *device;
+    lv_obj_t *mark_large, *bars, *bar[POCKET_MARK_BARS], *col, *title, *sub, *clock, *hint,
+        *device;
     lv_obj_t *code;
-    lv_obj_t *avatar_small, *head_title, *divider;
+    lv_obj_t *mark_small, *head_title, *divider;
     lv_obj_t *reply_box, *reply_label, *scrollbar, *hist;
     lv_obj_t *kicker, *transcript;
     lv_obj_t *set_title, *rows[SET_ROWS_VISIBLE], *row_label[SET_ROWS_VISIBLE],
@@ -87,6 +89,8 @@ typedef struct {
     uint8_t work_step;
     bool rec_active;
     uint32_t rec_start_ms;
+    // End points of the live voice bars; lv_line keeps a pointer to them.
+    lv_point_precise_t bar_pts[POCKET_MARK_BARS][2];
 } ui_t;
 
 static ui_t u;
@@ -159,6 +163,29 @@ static void set_text(lv_obj_t *l, const char *text)
     if (cur != text && (cur == NULL || strcmp(cur, text) != 0)) lv_label_set_text_static(l, text);
 }
 
+// Voice bars of the recording screen at the current mic level, ms into the
+// press. Motion and geometry come from tools/pocket/gen_mark.py.
+static void bars_update(uint32_t ms)
+{
+    uint32_t peak = pocket_audio_level();
+    const float level = peak >= LEVEL_FULL_SCALE ? 1.0f : (float)peak / LEVEL_FULL_SCALE;
+    const float t = ms / 1000.0f;
+    for (int i = 0; i < POCKET_MARK_BARS; i++) {
+        const pocket_mark_bar_t *b = &pocket_mark_live_bars[i];
+        const float wave = 0.5f + 0.5f * sinf(t * POCKET_MARK_WAVE_RATE + i * POCKET_MARK_WAVE_PHASE);
+        const float half = b->rest + POCKET_MARK_TALK_PX * level *
+                                         (POCKET_MARK_TALK_BASE + POCKET_MARK_TALK_SWING * wave);
+        const lv_point_precise_t p[2] = {
+            { (int32_t)lroundf(b->x - b->ax * half), (int32_t)lroundf(b->y - b->ay * half) },
+            { (int32_t)lroundf(b->x + b->ax * half), (int32_t)lroundf(b->y + b->ay * half) },
+        };
+        // An unchanged bar (a silent mic) is not redrawn.
+        if (memcmp(p, u.bar_pts[i], sizeof p) == 0 && lv_line_get_point_count(u.bar[i])) continue;
+        memcpy(u.bar_pts[i], p, sizeof p);
+        lv_line_set_points(u.bar[i], u.bar_pts[i], 2);
+    }
+}
+
 static void rec_timer_cb(lv_timer_t *t)
 {
     (void)t;
@@ -168,9 +195,7 @@ static void rec_timer_cb(lv_timer_t *t)
     uint32_t s = (now - u.rec_start_ms) / 1000;
     snprintf(clock, sizeof clock, "%u:%02u", (unsigned)(s / 60), (unsigned)(s % 60));
     lv_label_set_text(u.clock, clock);
-    uint32_t level = pocket_audio_level();
-    int32_t pct = (int32_t)(level >= LEVEL_FULL_SCALE ? 100 : level * 100 / LEVEL_FULL_SCALE);
-    lv_bar_set_value(u.level, pct, LV_ANIM_OFF);
+    bars_update(now - u.rec_start_ms);
 }
 
 // Working-state animation: one dot of three lit at a time. The timer runs
@@ -207,8 +232,22 @@ esp_err_t pocket_ui_init(void)
     lv_obj_align(u.battery, LV_ALIGN_TOP_RIGHT, -28, 10);
 
     // State screens.
-    u.avatar_large = lv_image_create(u.scr);
-    lv_obj_align(u.avatar_large, LV_ALIGN_TOP_MID, 0, AVATAR_Y);
+    u.mark_large = lv_image_create(u.scr);
+    lv_obj_align(u.mark_large, LV_ALIGN_TOP_MID, 0, MARK_Y);
+    // Live voice bars over the recording frame, in a box that holds them at
+    // full level, so a refresh redraws only that box.
+    u.bars = plain(u.scr);
+    lv_obj_set_pos(u.bars, (SCR_W - POCKET_MARK_LARGE_PX) / 2 + POCKET_MARK_BOX_X,
+                   MARK_Y + POCKET_MARK_BOX_Y);
+    lv_obj_set_size(u.bars, POCKET_MARK_BOX_W, POCKET_MARK_BOX_H);
+    for (int i = 0; i < POCKET_MARK_BARS; i++) {
+        lv_obj_t *l = lv_line_create(u.bars);
+        lv_obj_set_style_line_width(l, POCKET_MARK_BAR_WIDTH, 0);
+        lv_obj_set_style_line_rounded(l, true, 0);
+        lv_obj_set_style_line_color(
+            l, lv_color_hex(i == POCKET_MARK_BARS - 1 ? POCKET_MARK_ACCENT_RGB : POCKET_MARK_BAR_RGB), 0);
+        u.bar[i] = l;
+    }
     u.col = plain(u.scr);
     lv_obj_set_size(u.col, TEXT_W, LV_SIZE_CONTENT);
     lv_obj_align(u.col, LV_ALIGN_TOP_MID, 0, TITLE_Y);
@@ -218,13 +257,6 @@ esp_err_t pocket_ui_init(void)
     u.title = centered_label(u.col, C_STRONG, 0);
     u.sub = centered_label(u.col, C_MUTED, 0);
     u.clock = label(u.col, &pocket_cjk_20, C_BRAND);
-    u.level = lv_bar_create(u.col);
-    lv_obj_set_size(u.level, LEVEL_W, 6);
-    lv_obj_set_style_margin_top(u.level, 14, 0);
-    lv_obj_set_style_bg_color(u.level, lv_color_hex(C_SURFACE), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(u.level, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(u.level, lv_color_hex(C_BRAND), LV_PART_INDICATOR);
-    lv_bar_set_range(u.level, 0, 100);
     u.hint = centered_label(u.scr, C_FAINT, HINT_Y);
     u.device = label(u.scr, &lv_font_montserrat_14, C_FAINT);
     lv_obj_align(u.device, LV_ALIGN_TOP_MID, 0, HINT_Y + 2);
@@ -234,10 +266,10 @@ esp_err_t pocket_ui_init(void)
     lv_obj_align(u.code, LV_ALIGN_TOP_MID, 0, 104);
 
     // Header for the transcript and reply screens.
-    u.avatar_small = lv_image_create(u.scr);
-    lv_obj_set_pos(u.avatar_small, 20, HEADER_Y);
+    u.mark_small = lv_image_create(u.scr);
+    lv_obj_set_pos(u.mark_small, REPLY_X, HEADER_Y);
     u.head_title = label(u.scr, &pocket_cjk_20, C_STRONG);
-    lv_obj_set_pos(u.head_title, 94, HEADER_Y + 10);
+    lv_obj_set_pos(u.head_title, HEAD_TITLE_X, HEADER_Y + 10);
     u.divider = plain(u.scr);
     lv_obj_set_size(u.divider, REPLY_W, 1);
     lv_obj_set_pos(u.divider, REPLY_X, DIVIDER_Y);
@@ -326,18 +358,18 @@ esp_err_t pocket_ui_init(void)
 
 static void hide_all(void)
 {
-    lv_obj_t *all[] = { u.avatar_large, u.col, u.sub, u.clock, u.level, u.hint, u.device, u.code,
-                        u.avatar_small, u.head_title, u.divider, u.reply_box, u.scrollbar, u.hist,
+    lv_obj_t *all[] = { u.mark_large, u.bars, u.col, u.sub, u.clock, u.hint, u.device, u.code,
+                        u.mark_small, u.head_title, u.divider, u.reply_box, u.scrollbar, u.hist,
                         u.kicker, u.transcript, u.set_title, u.banner, u.work_dots };
     for (size_t i = 0; i < sizeof all / sizeof all[0]; i++) show(all[i], false);
     for (int i = 0; i < SET_ROWS_VISIBLE; i++) show(u.rows[i], false);
 }
 
-static void state_screen(pocket_avatar_t av, const char *title, const char *sub,
+static void state_screen(pocket_mark_t mood, const char *title, const char *sub,
                          const char *hint, uint32_t title_color, uint32_t sub_color)
 {
-    lv_image_set_src(u.avatar_large, pocket_avatars_large[av]);
-    show(u.avatar_large, true);
+    lv_image_set_src(u.mark_large, pocket_marks_large[mood]);
+    show(u.mark_large, true);
     show(u.col, true);
     set_text(u.title, title);
     lv_obj_set_style_text_color(u.title, lv_color_hex(title_color), 0);
@@ -352,10 +384,10 @@ static void state_screen(pocket_avatar_t av, const char *title, const char *sub,
     }
 }
 
-static void header(pocket_avatar_t av, const char *title, uint32_t color)
+static void header(pocket_mark_t mood, const char *title, uint32_t color)
 {
-    lv_image_set_src(u.avatar_small, pocket_avatars_small[av]);
-    show(u.avatar_small, true);
+    lv_image_set_src(u.mark_small, pocket_marks_small[mood]);
+    show(u.mark_small, true);
     set_text(u.head_title, title);
     lv_obj_set_style_text_color(u.head_title, lv_color_hex(color), 0);
     show(u.head_title, true);
@@ -414,7 +446,7 @@ void pocket_ui_set_transcript(const uint8_t *text, size_t len)
 
 static void render_reply(pocket_model_t *m)
 {
-    header(m->reply_final ? POCKET_AVATAR_REPLY : POCKET_AVATAR_GENERATING,
+    header(m->reply_final ? POCKET_MARK_IDLE : POCKET_MARK_SPEAKING,
            m->reply_final ? T(REPLY_NAME) : T(REPLY_STREAMING),
            m->reply_final ? C_STRONG : C_KICKER);
     show(u.reply_box, true);
@@ -444,15 +476,9 @@ static void render_reply(pocket_model_t *m)
 static void render_work(const pocket_model_t *m)
 {
     const char *title = T(WORK_RECEIVED);
-    pocket_avatar_t av = POCKET_AVATAR_HEARD;
-    if (m->work_phase == POCKET_WORK_THINKING) {
-        title = T(WORK_THINKING);
-        av = POCKET_AVATAR_THINKING;
-    } else if (m->work_phase == POCKET_WORK_TOOL) {
-        title = T(WORK_TOOL);
-        av = POCKET_AVATAR_THINKING;
-    }
-    header(av, title, C_STRONG);
+    if (m->work_phase == POCKET_WORK_THINKING) title = T(WORK_THINKING);
+    else if (m->work_phase == POCKET_WORK_TOOL) title = T(WORK_TOOL);
+    header(POCKET_MARK_THINKING, title, C_STRONG);
     lv_obj_update_layout(u.head_title);
     lv_obj_align_to(u.work_dots, u.head_title, LV_ALIGN_OUT_RIGHT_MID, 10, 2);
     show(u.work_dots, true);
@@ -550,20 +576,20 @@ static void render_notice(pocket_notice_t n)
 {
     switch (n) {
     case POCKET_NOTICE_ASR_FAILED:
-        state_screen(POCKET_AVATAR_DEAF, T(ASR_TITLE), T(ASR_SUB),
+        state_screen(POCKET_MARK_UNAVAILABLE, T(ASR_TITLE), T(ASR_SUB),
                      T(NOTICE_HINT), C_STRONG, C_MUTED);
         break;
     case POCKET_NOTICE_SEND_FAILED:
-        state_screen(POCKET_AVATAR_SENSESOFF, T(SEND_TITLE), T(SEND_SUB),
+        state_screen(POCKET_MARK_UNAVAILABLE, T(SEND_TITLE), T(SEND_SUB),
                      T(NOTICE_HINT), C_STRONG, C_MUTED);
         break;
     case POCKET_NOTICE_NO_SERVER:
-        state_screen(POCKET_AVATAR_SENSESOFF, T(SERVER_TITLE), T(SERVER_SUB),
+        state_screen(POCKET_MARK_UNAVAILABLE, T(SERVER_TITLE), T(SERVER_SUB),
                      T(NOTICE_HINT), C_STRONG, C_MUTED);
         break;
     case POCKET_NOTICE_EMPTY:
     default:
-        state_screen(POCKET_AVATAR_DEAF, T(EMPTY_TITLE), T(EMPTY_SUB),
+        state_screen(POCKET_MARK_UNAVAILABLE, T(EMPTY_TITLE), T(EMPTY_SUB),
                      T(NOTICE_HINT), C_STRONG, C_MUTED);
         break;
     }
@@ -600,11 +626,11 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
     else lv_timer_pause(u.work_timer);
     switch (m->screen) {
     case POCKET_SCR_BOOT:
-        state_screen(POCKET_AVATAR_RECEIVED, T(APP_NAME), T(BOOT), NULL,
+        state_screen(POCKET_MARK_IDLE, T(APP_NAME), T(BOOT), NULL,
                      C_STRONG, C_MUTED);
         break;
     case POCKET_SCR_PAIRING:
-        state_screen(POCKET_AVATAR_RECEIVED, T(PAIR_TITLE), T(PAIR_SUB), NULL,
+        state_screen(POCKET_MARK_UNAVAILABLE, T(PAIR_TITLE), T(PAIR_SUB), NULL,
                      C_STRONG, C_MUTED);
         set_text(u.device, device_name);
         show(u.device, true);
@@ -627,27 +653,27 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
         break;
     case POCKET_SCR_OFFLINE:
         if (m->refused_flash) {
-            state_screen(POCKET_AVATAR_OFFLINE, T(OFFLINE_TITLE), T(OFFLINE_REFUSED),
+            state_screen(POCKET_MARK_UNAVAILABLE, T(OFFLINE_TITLE), T(OFFLINE_REFUSED),
                          NULL, C_ATTENTION, C_ATTENTION);
         } else {
-            state_screen(POCKET_AVATAR_OFFLINE, T(OFFLINE_TITLE), T(OFFLINE_SUB),
+            state_screen(POCKET_MARK_UNAVAILABLE, T(OFFLINE_TITLE), T(OFFLINE_SUB),
                          NULL, C_STRONG, C_MUTED);
         }
         break;
     case POCKET_SCR_HOME:
-        state_screen(POCKET_AVATAR_RECEIVED, T(HOME_TITLE), T(HOME_SUB),
+        state_screen(POCKET_MARK_IDLE, T(HOME_TITLE), T(HOME_SUB),
                      T(HINT_SETTINGS), C_STRONG, C_MUTED);
         break;
     case POCKET_SCR_RECORDING:
-        state_screen(POCKET_AVATAR_LISTENING, T(REC_TITLE), NULL, T(REC_HINT),
+        state_screen(POCKET_MARK_HEARING, T(REC_TITLE), NULL, T(REC_HINT),
                      C_STRONG, C_MUTED);
         u.rec_start_ms = m->recording_started_ms;
         show(u.clock, true);
-        show(u.level, true);
+        show(u.bars, true);
         rec_timer_cb(NULL);
         break;
     case POCKET_SCR_SENDING:
-        state_screen(POCKET_AVATAR_HEARD, T(SENDING_TITLE), NULL, NULL, C_STRONG, C_MUTED);
+        state_screen(POCKET_MARK_THINKING, T(SENDING_TITLE), NULL, NULL, C_STRONG, C_MUTED);
         break;
     case POCKET_SCR_THINKING:
         render_work(m);
@@ -664,7 +690,7 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
         render_settings(m);
         break;
     case POCKET_SCR_PROTO_MISMATCH:
-        state_screen(POCKET_AVATAR_SENSESOFF, T(PROTO_TITLE), T(PROTO_SUB), NULL,
+        state_screen(POCKET_MARK_UNAVAILABLE, T(PROTO_TITLE), T(PROTO_SUB), NULL,
                      C_ATTENTION, C_MUTED);
         break;
     case POCKET_SCR_REPAIR_CONFIRM:

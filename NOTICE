@@ -11,8 +11,8 @@ Licences of this repository's files
 | Files | Licence |
 | --- | --- |
 | Files from upstream folotoy/ai-passport, including the ones this fork modifies | MIT, Copyright (c) 2026 FoloToy (LICENSE) |
-| New files of the pocket fork: main/pocket_*, tools/pocket/, tests/test_pocket_*, tests/pocket_check.h, the new test stubs, assets/images/avatar/ (SVGs and the generated pocket_avatars.c/.h), docs/pocket/*.md, sdkconfig.*.defaults overlays, components/bsp/Kconfig | FSL-1.1-Apache-2.0, Copyright 2026 openduo (LICENSE-FSL-1.1-Apache-2.0) |
-| Brand assets: the screen mockups in docs/pocket/mockups/ and the DuoDuo / OpenDuo names | No open licence, all rights reserved by openduo (see "Brand assets" below) |
+| New files of the pocket fork: main/pocket_*, tools/pocket/, tests/test_pocket_*, tests/pocket_check.h, the new test stubs, docs/pocket/*.md, sdkconfig.*.defaults overlays, components/bsp/Kconfig | FSL-1.1-Apache-2.0, Copyright 2026 openduo (LICENSE-FSL-1.1-Apache-2.0) |
+| Brand assets: the DuoDuo mark (assets/images/mark/: logo-geometry.json and the generated pocket_mark.c/.h), the screen mockups in docs/pocket/mockups/ and docs/pocket/screens/, and the DuoDuo / OpenDuo names | No open licence, all rights reserved by openduo (see "Brand assets" below) |
 | Glyph data in assets/fonts/pocket_cjk_20.c and assets/fonts/pocket_digits_44.c, converted from Noto Sans SC | SIL Open Font License 1.1 (assets/fonts/LICENSE-OFL-1.1.txt) |
 
 Each source file states its licence in an SPDX header. A source file without a header comes from
@@ -41,8 +41,8 @@ Stored in this repository:
 | Asset | Origin | Licence |
 | --- | --- | --- |
 | Noto Sans SC 2.004 glyphs (assets/fonts/pocket_*.c) | https://github.com/notofonts/noto-cjk, tag Sans2.004, converted by tools/pocket/gen_fonts.sh with lv_font_conv 1.5.3 | OFL-1.1, Copyright 2014-2021 Adobe, Reserved Font Name "Source" |
-| DuoDuo avatar poses (assets/images/avatar/*.svg and the generated pocket_avatars.c/.h) | From openduo/ambient (web/avatar), dark variant | FSL-1.1-Apache-2.0 |
-| Screen mockups (docs/pocket/mockups/) | Rendered by tools/pocket/render_mockups.py from this repository's font, avatars and UI copy | openduo brand asset, no open licence (glyphs inside: OFL-1.1) |
+| DuoDuo mark (assets/images/mark/logo-geometry.json and the generated pocket_mark.c/.h) | The geometry the DuoDuo web and phone apps draw (openduo/pocket-ios App/Views/LogoGeometry.swift), rendered by tools/pocket/gen_mark.py | openduo brand asset, no open licence |
+| Screen mockups (docs/pocket/mockups/) | Rendered by tools/pocket/render_mockups.py from this repository's font, mark and UI copy | openduo brand asset, no open licence (glyphs inside: OFL-1.1) |
 | FoloToy logo, wordmarks and product images (assets/images/home.jpg, logo*.png, readme-hardware-specs.png, docs/brand/) | Upstream folotoy/ai-passport | FoloToy's marks; see upstream |
 
 A binary distribution of the firmware must carry this NOTICE, LICENSE, LICENSE-FSL-1.1-Apache-2.0,
@@ -51,9 +51,8 @@ assets/fonts/LICENSE-OFL-1.1.txt and the notices of the components above.
 Brand assets
 ------------
 
-The DuoDuo and OpenDuo names (trademarks) and the pocket screen mockups are openduo brand
-assets. Neither MIT nor FSL-1.1-Apache-2.0 covers them, and no other licence is granted. A fork
-or derived product must replace them (the mockups, the device name "DuoDuo Pocket" and the
-多多 / 多多随身 names in main/pocket_strings.h) before distribution. The avatar images follow
-the code licence, FSL-1.1-Apache-2.0.
+The DuoDuo and OpenDuo names (trademarks), the DuoDuo mark and the pocket screen mockups are
+openduo brand assets. Neither MIT nor FSL-1.1-Apache-2.0 covers them, and no other licence is granted. A fork
+or derived product must replace them (the mark, the mockups, the device name "DuoDuo Pocket" and the
+多多 / 多多随身 names in main/pocket_strings.h) before distribution.
 FoloToy names, logos and marks remain FoloToy's.

@@ -64,7 +64,7 @@
 
 本仓库同时包含「多多随身」固件（[`docs/pocket/README.zh_CN.md`](docs/pocket/README.zh_CN.md)）。做 pocket 相关工作时：
 
-- 新文件带两行文件头 `Copyright 2026 openduo` / `SPDX-License-Identifier: FSL-1.1-Apache-2.0`；上游文件保持 MIT。头像图片随代码使用 FSL；多多名称和界面效果图是品牌素材，不提供开放许可；生成的字体数据为 OFL-1.1（见 `NOTICE`）。
+- 新文件带两行文件头 `Copyright 2026 openduo` / `SPDX-License-Identifier: FSL-1.1-Apache-2.0`；上游文件保持 MIT。多多标志（`assets/images/mark/`）、多多名称和界面效果图是品牌素材，不提供开放许可；生成的字体数据为 OFL-1.1（见 `NOTICE`）。
 - `main/pocket_proto.*` 和 `docs/pocket/README.md` 里的 BLE 链路与手机 App 共用，两边一起改，并补主机测试。
 - 每个运行时常量都要命名并写明依据（`main/pocket_config.h`、`main/Kconfig.projbuild`）；还在等测量数据的值要注明。
 - 界面文案只放在 `main/pocket_strings.h`。改了文案或字符清单后，运行 `tools/pocket/gen_fonts.sh` 和 `tests/test_pocket_glyphs.py`。

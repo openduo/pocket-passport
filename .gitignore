@@ -16,7 +16,7 @@ managed_components/
 CLAUDE.local.md
 /.agents/
 /.claude/
-# Host-side scratch: font download cache, avatar previews, superseded mockups.
+# Host-side scratch: font download cache, mark previews, superseded mockups.
 /tools/pocket/.cache/
 /docs/pocket/mockups/drafts/
 # Build directories of the release and debug/probe images (build-release, build-debug, ...).

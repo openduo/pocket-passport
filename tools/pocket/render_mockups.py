@@ -4,11 +4,11 @@
 """Render host-side mockups of every pocket screen at 240x320.
 
 Design review aid, not the firmware renderer: the layout constants below
-mirror main/pocket_ui.c, the copy comes from main/pocket_strings.h, avatars
-from tools/pocket/gen_avatars.py and text from the pinned Noto Sans SC at the
+mirror main/pocket_ui.c, the copy comes from main/pocket_strings.h, the mark
+from tools/pocket/gen_mark.py and text from the pinned Noto Sans SC at the
 firmware's 20 px size. Writes docs/pocket/mockups/<screen>.png (2x) and
 overview.png in Simplified Chinese, and the same set in English under
-docs/pocket/mockups/en/. Run gen_fonts.sh and gen_avatars.py first.
+docs/pocket/mockups/en/. Run gen_fonts.sh and gen_mark.py first.
 """
 from __future__ import annotations
 
@@ -17,15 +17,19 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+import gen_mark
+
 REPO = Path(__file__).resolve().parents[2]
 FONT = REPO / "tools/pocket/.cache/NotoSansSC-Regular-2.004.otf"
-AVATARS = REPO / "tools/pocket/.cache/avatars"
+MARKS = REPO / "tools/pocket/.cache/mark"
+LARGE, SMALL = gen_mark.SIZES["large"], gen_mark.SIZES["small"]
+# Sample mic level of the recording screen's live bars (0..1).
+REC_LEVEL = 0.6
 W, H, RADIUS, SCALE = 240, 320, 30, 2
 
 # Colours: dark theme tokens of the DuoDuo web app (openduo/ambient,
 # packages/channel-ambient/web/tokens/colors.css).
 BG = "#0e0e0d"
-SURFACE = "#141413"
 BRAND = "#1fd9de"
 BRAND_TINT = "#0c2b2e"
 KICKER = "#6ec5cb"
@@ -70,6 +74,7 @@ def font(size: int) -> ImageFont.FreeTypeFont:
 
 F20, F14, F44 = font(20), font(14), font(44)
 LINE = 26  # pocket_cjk_20 line height
+HEAD_TITLE_X = 20 + SMALL + 10  # HEAD_TITLE_X in main/pocket_ui.c
 
 
 BREAK_CHARS = " ,.;:-_)}"  # CONFIG_LV_TXT_BREAK_CHARS
@@ -143,8 +148,8 @@ def status_bar(d, linked=True, battery=87):
     d.text((W - 28 - d.textlength(t, font=F14), 10), t, font=F14, fill=MUTED)
 
 
-def avatar(img, state, size="large", xy=None):
-    a = Image.open(AVATARS / f"{state}-{176 if size == 'large' else 64}.png").convert("RGB")
+def mark(img, mood, size="large", xy=None):
+    a = Image.open(MARKS / f"{mood}-{LARGE if size == 'large' else SMALL}.png").convert("RGB")
     if xy is None:
         xy = ((W - a.width) // 2, 40)
     img.paste(a, xy)
@@ -154,10 +159,10 @@ def hint(d, text):
     text_block(d, text, 282, FAINT)
 
 
-def state_screen(img, d, state, title, sub=None, hint_text=None, title_color=STRONG,
+def state_screen(img, d, mood, title, sub=None, hint_text=None, title_color=STRONG,
                  sub_color=MUTED, linked=True):
     status_bar(d, linked)
-    avatar(img, state)
+    mark(img, mood)
     y = text_block(d, title, 176, title_color)
     if sub:
         text_block(d, sub, y + 4, sub_color, max_lines=2)
@@ -166,7 +171,7 @@ def state_screen(img, d, state, title, sub=None, hint_text=None, title_color=STR
 
 
 def scr_pairing(img, d):
-    state_screen(img, d, "received", S["PAIR_TITLE"], S["PAIR_SUB"], linked=False)
+    state_screen(img, d, "unavailable", S["PAIR_TITLE"], S["PAIR_SUB"], linked=False)
     t = "DuoDuo Pocket 3F2A"
     d.text(((W - d.textlength(t, font=F14)) / 2, 284), t, font=F14, fill=FAINT)
 
@@ -181,45 +186,44 @@ def scr_pair_confirm(img, d):
 
 
 def scr_offline(img, d):
-    state_screen(img, d, "offline", S["OFFLINE_TITLE"], S["OFFLINE_SUB"], linked=False)
+    state_screen(img, d, "unavailable", S["OFFLINE_TITLE"], S["OFFLINE_SUB"], linked=False)
 
 
 def scr_offline_refused(img, d):
-    state_screen(img, d, "offline", S["OFFLINE_TITLE"], S["OFFLINE_REFUSED"],
+    state_screen(img, d, "unavailable", S["OFFLINE_TITLE"], S["OFFLINE_REFUSED"],
                  title_color=ATTENTION, sub_color=ATTENTION, linked=False)
 
 
 def scr_home(img, d):
-    state_screen(img, d, "received", S["HOME_TITLE"], S["HOME_SUB"], S["HINT_SETTINGS"])
+    state_screen(img, d, "idle", S["HOME_TITLE"], S["HOME_SUB"], S["HINT_SETTINGS"])
 
 
 def scr_recording(img, d):
     status_bar(d)
-    avatar(img, "listening")
+    # The firmware draws the bars live over the bar-less frame; here one level.
+    img.paste(gen_mark.render("hearing", LARGE, level=REC_LEVEL), ((W - LARGE) // 2, 40))
     text_block(d, S["REC_TITLE"], 176, STRONG)
     clock = "0:07"
     d.text(((W - d.textlength(clock, font=F20)) / 2, 206), clock, font=F20, fill=BRAND)
-    d.rounded_rectangle((40, 244, 200, 250), radius=3, fill=SURFACE)
-    d.rounded_rectangle((40, 244, 40 + 96, 250), radius=3, fill=BRAND)
     hint(d, S["REC_HINT"])
 
 
 def scr_sending(img, d):
-    state_screen(img, d, "heard", S["SENDING_TITLE"])
+    state_screen(img, d, "thinking", S["SENDING_TITLE"])
 
 
-def header(img, d, state, title, color=STRONG):
+def header(img, d, mood, title, color=STRONG):
     status_bar(d)
-    avatar(img, state, "small", (20, 36))
-    d.text((94, 46), title, font=F20, fill=color)
+    mark(img, mood, "small", (20, 36))
+    d.text((HEAD_TITLE_X, 46), title, font=F20, fill=color)
     d.line((20, 88, 220, 88), fill=HAIRLINE)
 
 
-def working(state, title, lit):
+def working(title, lit):
     """Working state: phase label, three dots with one lit."""
     def draw(img, d):
-        header(img, d, state, S[title])
-        x = 94 + d.textlength(S[title], font=F20) + 10
+        header(img, d, "thinking", S[title])
+        x = HEAD_TITLE_X + d.textlength(S[title], font=F20) + 10
         for i in range(3):
             fill = BRAND if i == lit else "#134b4c"  # brand at LV_OPA_30 over BG
             d.ellipse((x + i * 12, 58, x + i * 12 + 6, 64), fill=fill)
@@ -242,26 +246,26 @@ def reply_body(d, scroll_lines=0):
 
 
 def scr_reply(img, d):
-    header(img, d, "reply", S["REPLY_NAME"])
+    header(img, d, "idle", S["REPLY_NAME"])
     reply_body(d)
 
 
 def scr_reply_streaming(img, d):
-    header(img, d, "generating", S["REPLY_STREAMING"], KICKER)
+    header(img, d, "speaking", S["REPLY_STREAMING"], KICKER)
     reply_body(d)
 
 
 def scr_reply_scrolled_banner(img, d):
-    header(img, d, "reply", S["REPLY_NAME"])
+    header(img, d, "idle", S["REPLY_NAME"])
     reply_body(d, scroll_lines=3)
     d.rounded_rectangle((36, 284, 204, 312), radius=8, fill=ATTENTION_TINT)
     t = S["BANNER_SERVER"]
     d.text(((W - d.textlength(t, font=F20)) / 2, 285), t, font=F20, fill=ATTENTION)
 
 
-def notice(state, title, sub):
+def notice(title, sub):
     def draw(img, d):
-        state_screen(img, d, state, S[title], S[sub], S["NOTICE_HINT"])
+        state_screen(img, d, "unavailable", S[title], S[sub], S["NOTICE_HINT"])
     return draw
 
 
@@ -292,7 +296,7 @@ def scr_repair(img, d):
 
 
 def scr_proto(img, d):
-    state_screen(img, d, "sensesoff", S["PROTO_TITLE"], S["PROTO_SUB"], title_color=ATTENTION)
+    state_screen(img, d, "unavailable", S["PROTO_TITLE"], S["PROTO_SUB"], title_color=ATTENTION)
 
 
 SCREENS = [
@@ -303,19 +307,19 @@ SCREENS = [
     ("05-home", scr_home),
     ("06-recording", scr_recording),
     ("07-sending", scr_sending),
-    ("08-working-received", working("heard", "WORK_RECEIVED", 0)),
+    ("08-working-received", working("WORK_RECEIVED", 0)),
     ("09-reply-streaming", scr_reply_streaming),
     ("10-reply", scr_reply),
     ("11-reply-scrolled-server-banner", scr_reply_scrolled_banner),
-    ("12-notice-empty", notice("deaf", "EMPTY_TITLE", "EMPTY_SUB")),
-    ("13-notice-asr-failed", notice("deaf", "ASR_TITLE", "ASR_SUB")),
-    ("14-notice-send-failed", notice("sensesoff", "SEND_TITLE", "SEND_SUB")),
-    ("15-notice-server", notice("sensesoff", "SERVER_TITLE", "SERVER_SUB")),
+    ("12-notice-empty", notice("EMPTY_TITLE", "EMPTY_SUB")),
+    ("13-notice-asr-failed", notice("ASR_TITLE", "ASR_SUB")),
+    ("14-notice-send-failed", notice("SEND_TITLE", "SEND_SUB")),
+    ("15-notice-server", notice("SERVER_TITLE", "SERVER_SUB")),
     ("16-settings", scr_settings),
     ("17-repair-confirm", scr_repair),
     ("18-protocol-mismatch", scr_proto),
-    ("19-working-thinking", working("thinking", "WORK_THINKING", 1)),
-    ("20-working-tool", working("thinking", "WORK_TOOL", 2)),
+    ("19-working-thinking", working("WORK_THINKING", 1)),
+    ("20-working-tool", working("WORK_TOOL", 2)),
 ]
 
 

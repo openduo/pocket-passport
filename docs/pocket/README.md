@@ -15,10 +15,10 @@ uploads one voice note per press, and the latest answer is shown on the Passport
 | Files | License |
 | --- | --- |
 | Files from upstream `folotoy/ai-passport`, including the ones modified here | MIT ([`LICENSE`](../../LICENSE)) |
-| New files of this fork (`main/pocket_*`, `tools/pocket/`, `tests/test_pocket_*`, `tests/pocket_check.h`, `assets/fonts/pocket_cjk_charset.txt`, `assets/images/avatar/`, the Markdown in `docs/pocket/`, the `sdkconfig.*.defaults` overlays, `components/bsp/Kconfig`, the stubs `tests/audio_stubs/driver/i2s_common.h`, `tests/bsp_stubs/driver/gpio.h`, `tests/bsp_stubs/esp_attr.h`, `tests/bsp_stubs/esp_sleep.h`) | FSL-1.1-Apache-2.0 ([`LICENSE-FSL-1.1-Apache-2.0`](../../LICENSE-FSL-1.1-Apache-2.0)); every source file carries the SPDX header |
+| New files of this fork (`main/pocket_*`, `tools/pocket/`, `tests/test_pocket_*`, `tests/pocket_check.h`, `assets/fonts/pocket_cjk_charset.txt`, the Markdown in `docs/pocket/`, the `sdkconfig.*.defaults` overlays, `components/bsp/Kconfig`, the stubs `tests/audio_stubs/driver/i2s_common.h`, `tests/bsp_stubs/driver/gpio.h`, `tests/bsp_stubs/esp_attr.h`, `tests/bsp_stubs/esp_sleep.h`) | FSL-1.1-Apache-2.0 ([`LICENSE-FSL-1.1-Apache-2.0`](../../LICENSE-FSL-1.1-Apache-2.0)); every source file carries the SPDX header |
 | Noto Sans SC glyph data in `assets/fonts/pocket_cjk_20.c` and `pocket_digits_44.c` | SIL Open Font License 1.1 ([`assets/fonts/LICENSE-OFL-1.1.txt`](../../assets/fonts/LICENSE-OFL-1.1.txt)) |
 
-| DuoDuo brand assets: the mockups in `docs/pocket/mockups/` and the DuoDuo / OpenDuo names (trademarks) in English and Chinese | No open licence; all rights reserved by openduo. A fork must replace them. |
+| DuoDuo brand assets: the DuoDuo mark (`assets/images/mark/`: its geometry and the generated `pocket_mark.c/.h`), the mockups in `docs/pocket/mockups/` and the README screens in `docs/pocket/screens/`, and the DuoDuo / OpenDuo names (trademarks) in English and Chinese | No open licence; all rights reserved by openduo. A fork must replace them. |
 
 FoloToy names and marks remain FoloToy's. Third-party components of the firmware image and their
 licences: [`NOTICE`](../../NOTICE).
@@ -38,8 +38,31 @@ licences: [`NOTICE`](../../NOTICE).
 Mockups of all 20 screens in Simplified Chinese: [`mockups/overview.png`](mockups/overview.png),
 one PNG per screen in [`mockups/`](mockups/); the same set in English in
 [`mockups/en/`](mockups/en/) ([`overview`](mockups/en/overview.png)). They are rendered on the host by `tools/pocket/render_mockups.py` from the
-same copy (`main/pocket_strings.h`), font and avatar images as the firmware. The firmware UI is
+same copy (`main/pocket_strings.h`), font and mark images as the firmware. The firmware UI is
 `main/pocket_ui.c`; the upstream demo menu and screens are not linked.
+
+### The DuoDuo mark
+
+Every state screen and the transcript and reply header show the DuoDuo mark: the coat and its
+five voice bars, drawn from the same geometry as the DuoDuo web and phone apps
+(`assets/images/mark/logo-geometry.json`). Each screen shows the apps' still frame of a mood (the
+frame they draw under reduced motion) on the dark palette; a halo behind the mark gives the mood's
+colour and the unavailable mood is grey. Nothing is added to the mark.
+
+| Screen | Mood | Frame |
+| --- | --- | --- |
+| Starting, home, reply (final) | idle | No halo, head tilted 6°, bars dozing |
+| Recording (hold OK) | hearing | Teal halo, head tilted 14°; the voice bars follow the microphone |
+| Sending, received, thinking, looking it up | thinking | Violet halo |
+| Reply still streaming | speaking | Pink halo, bars in the speaking shape |
+| Waiting to pair, phone not connected, notices, version mismatch | unavailable | Grey mark, no halo |
+
+Only the recording screen moves. Its image has no bars; five LVGL lines draw them in a 68 × 50 px
+box, refreshed by the recording-clock timer (`REC_REFRESH_MS`, 100 ms) that already runs only on
+that screen. The level is the last mic frame's peak scaled by `LEVEL_FULL_SCALE`, and the bars move
+as the apps' bars move with a level (the speaking-aloud motion); both come from
+`tools/pocket/gen_mark.py` through `pocket_mark.h`. Every other screen is a still image and causes
+no refresh.
 
 ## BLE link
 
@@ -208,6 +231,7 @@ volume 70 %) through the ES8311 and costs no RAM; turning the setting on plays i
 | --- | --- | --- |
 | LVGL pool | 20 KB | Measured peak 16,016 B (pairing code screen) + 25 %, rounded up to 1 KB. ~2.6 KB of it is allocator overhead, so measure new screens with the memory probe (`lv_max`). |
 | Draw buffer | 20 lines (9.6 KB), `CONFIG_BSP_LVGL_DRAW_BUFFER_LINES` | A full redraw of the 4 KB reply screen takes ~104 ms (40 lines: ~68 ms). |
+| Mark images | Seven RGB565 frames in flash: four 132 px (state screens), three 50 px (header), 154,392 B | Only the moods each size is shown in. The poodle images they replace took ~450 KB; the release image shrank from 3,108,218 B to 2,813,912 B. |
 | Optimisation | `-Os` | 11 KB less IRAM code than `-Og`; Opus encode stays at 4.4-4.6 ms per 20 ms frame (4.5-4.6 ms at `-Og`). |
 | Reply copies | One in RAM (the screen's buffer) besides the BLE reassembly buffer | Large phone messages are read in place from the reassembly buffer and released after the copy. |
 
@@ -281,6 +305,6 @@ flashed afterwards does not show them; the history walk covers the replies alrea
 
 ```sh
 tools/pocket/gen_fonts.sh          # pinned Noto Sans SC download, lv_font_conv 1.5.3, coverage check
-python3 tools/pocket/gen_avatars.py   # needs rsvg-convert and Pillow
+python3 tools/pocket/gen_mark.py      # needs rsvg-convert and Pillow
 python3 tools/pocket/render_mockups.py
 ```

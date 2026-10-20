@@ -15,10 +15,10 @@ Passport 屏幕上。
 | 文件 | 许可证 |
 | --- | --- |
 | 来自上游 `folotoy/ai-passport` 的文件（包括在这里修改过的） | MIT（[`LICENSE`](../../LICENSE)） |
-| 本分支新增的文件（`main/pocket_*`、`tools/pocket/`、`tests/test_pocket_*`、`tests/pocket_check.h`、`assets/fonts/pocket_cjk_charset.txt`、`assets/images/avatar/`、`docs/pocket/` 中的 Markdown、各个 `sdkconfig.*.defaults` 叠加配置、`components/bsp/Kconfig`、测试桩 `tests/audio_stubs/driver/i2s_common.h`、`tests/bsp_stubs/driver/gpio.h`、`tests/bsp_stubs/esp_attr.h`、`tests/bsp_stubs/esp_sleep.h`） | FSL-1.1-Apache-2.0（[`LICENSE-FSL-1.1-Apache-2.0`](../../LICENSE-FSL-1.1-Apache-2.0)），每个源文件都带 SPDX 头 |
+| 本分支新增的文件（`main/pocket_*`、`tools/pocket/`、`tests/test_pocket_*`、`tests/pocket_check.h`、`assets/fonts/pocket_cjk_charset.txt`、`docs/pocket/` 中的 Markdown、各个 `sdkconfig.*.defaults` 叠加配置、`components/bsp/Kconfig`、测试桩 `tests/audio_stubs/driver/i2s_common.h`、`tests/bsp_stubs/driver/gpio.h`、`tests/bsp_stubs/esp_attr.h`、`tests/bsp_stubs/esp_sleep.h`） | FSL-1.1-Apache-2.0（[`LICENSE-FSL-1.1-Apache-2.0`](../../LICENSE-FSL-1.1-Apache-2.0)），每个源文件都带 SPDX 头 |
 | `assets/fonts/pocket_cjk_20.c` 和 `pocket_digits_44.c` 中的 Noto Sans SC 字形数据 | SIL Open Font License 1.1（[`assets/fonts/LICENSE-OFL-1.1.txt`](../../assets/fonts/LICENSE-OFL-1.1.txt)） |
 
-| 多多品牌素材：`docs/pocket/mockups/` 中的界面效果图、多多 / DuoDuo / OpenDuo 名称（商标） | 不提供开放许可，openduo 保留所有权利。分支项目必须替换。 |
+| 多多品牌素材：多多标志（`assets/images/mark/`：几何数据和生成的 `pocket_mark.c/.h`）、`docs/pocket/mockups/` 中的界面效果图和 `docs/pocket/screens/` 中的 README 截图、多多 / DuoDuo / OpenDuo 名称（商标） | 不提供开放许可，openduo 保留所有权利。分支项目必须替换。 |
 
 FoloToy 的名称和标识归 FoloToy 所有。固件镜像包含的第三方组件及其许可证见 [`NOTICE`](../../NOTICE)。
 
@@ -36,8 +36,27 @@ FoloToy 的名称和标识归 FoloToy 所有。固件镜像包含的第三方组
 
 全部 20 个界面的简体中文效果图：[`mockups/overview.png`](mockups/overview.png)，每个界面一张 PNG 在
 [`mockups/`](mockups/)；英文版在 [`mockups/en/`](mockups/en/)（[`总览`](mockups/en/overview.png)）。效果图由 `tools/pocket/render_mockups.py` 在电脑上渲染，文案
-（`main/pocket_strings.h`）、字体和头像图片与固件相同。固件界面在 `main/pocket_ui.c`；上游演示
+（`main/pocket_strings.h`）、字体和标志图片与固件相同。固件界面在 `main/pocket_ui.c`；上游演示
 菜单和页面不再链接。
+
+### 多多标志
+
+所有状态界面以及转写、回答界面的页眉都显示多多标志：外形和五根声音条，几何数据与多多网页和手机 App
+相同（`assets/images/mark/logo-geometry.json`）。每个界面显示 App 在“减少动态效果”下画出的该状态静止帧，
+用深色配色；标志后面的光晕颜色表示状态，不可用状态为灰色。标志本身不添加任何元素。
+
+| 界面 | 状态 | 画面 |
+| --- | --- | --- |
+| 启动、主界面、回答（已完成） | idle | 无光晕，头偏 6°，声音条收短 |
+| 录音（按住 OK） | hearing | 青色光晕，头偏 14°；声音条跟随麦克风 |
+| 发送中、收到了、在想、在查 | thinking | 紫色光晕 |
+| 回答还在生成 | speaking | 粉色光晕，声音条为说话形状 |
+| 等待配对、手机未连接、各类提示、版本不匹配 | unavailable | 灰色标志，无光晕 |
+
+只有录音界面会动。该界面的图片不含声音条，由五条 LVGL 线段在 68 × 50 px 的区域里绘制，刷新借用原本只在
+录音界面运行的录音计时定时器（`REC_REFRESH_MS`，100 ms）。电平是最近一帧麦克风的峰值除以
+`LEVEL_FULL_SCALE`，声音条按 App 中声音条随电平变化的方式运动（speaking-aloud 动作）；两者都由
+`tools/pocket/gen_mark.py` 生成到 `pocket_mark.h`。其他界面都是静止图片，不产生刷新。
 
 ## BLE 链路
 
@@ -192,6 +211,7 @@ BLE 连接可能一直保持，新的 App 进程会重新订阅，但 CCCD 的�
 | --- | --- | --- |
 | LVGL 内存池 | 20 KB | 实测峰值 16,016 B（配对码界面）+ 25%，向上取整到 1 KB。其中约 2.6 KB 是分配器开销，新界面要用内存探针（`lv_max`）实测。 |
 | 绘制缓冲 | 20 行（9.6 KB），`CONFIG_BSP_LVGL_DRAW_BUFFER_LINES` | 4 KB 回答界面整屏重绘约 104 ms（40 行时约 68 ms）。 |
+| 标志图片 | flash 中七帧 RGB565：四帧 132 px（状态界面），三帧 50 px（页眉），共 154,392 B | 每种尺寸只生成实际用到的状态。被替换的贵宾犬图片约 450 KB；release 固件从 3,108,218 B 降到 2,813,912 B。 |
 | 优化级别 | `-Os` | 比 `-Og` 少 11 KB IRAM 代码；Opus 编码仍是每 20 ms 帧 4.4–4.6 ms（`-Og` 时 4.5–4.6 ms）。 |
 | 回答副本 | 除 BLE 重组缓冲外，RAM 里只有一份（屏幕缓冲） | 大的手机消息直接从重组缓冲读取，拷贝完即释放。 |
 
@@ -258,6 +278,6 @@ idf.py -B build-debug -p <PORT> app-flash monitor
 
 ```sh
 tools/pocket/gen_fonts.sh          # 下载固定版本的 Noto Sans SC，lv_font_conv 1.5.3，覆盖检查
-python3 tools/pocket/gen_avatars.py   # 需要 rsvg-convert 和 Pillow
+python3 tools/pocket/gen_mark.py      # 需要 rsvg-convert 和 Pillow
 python3 tools/pocket/render_mockups.py
 ```

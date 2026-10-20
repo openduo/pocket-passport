@@ -181,11 +181,12 @@ bool pocket_pdu_inline(const struct pocket_reasm *r, const uint8_t *pdu, size_t 
            *payload_len <= POCKET_RX_INLINE_BYTES;
 }
 
-bool pocket_rx_msg_pack(pocket_rx_msg_t *m, uint8_t type, const uint8_t *payload, size_t len,
-                        bool truncated)
+bool pocket_rx_msg_pack(pocket_rx_msg_t *m, uint8_t type, uint8_t pdu_flags, const uint8_t *payload,
+                        size_t len, bool truncated)
 {
     memset(m, 0, sizeof *m);
     m->type = type;
+    m->pdu_flags = pdu_flags;
     m->truncated = truncated;
     m->len = len;
     if (len <= sizeof m->bytes) {
@@ -199,6 +200,13 @@ bool pocket_rx_msg_pack(pocket_rx_msg_t *m, uint8_t type, const uint8_t *payload
 const uint8_t *pocket_rx_msg_data(const pocket_rx_msg_t *m)
 {
     return m->kept ? m->kept : m->bytes;
+}
+
+bool pocket_msg_parse_rx(const pocket_rx_msg_t *m, pocket_downlink_t *out)
+{
+    if (!pocket_msg_parse_downlink(m->type, pocket_rx_msg_data(m), m->len, out)) return false;
+    out->quiet = out->type == POCKET_MSG_REPLY && (m->pdu_flags & POCKET_PDU_FLAG_QUIET);
+    return true;
 }
 
 void pocket_reasm_init(pocket_reasm_t *r, uint8_t *buf, size_t cap)

@@ -170,23 +170,56 @@ static void test_rx_msg_pack(void)
     pocket_rx_msg_t m;
     memset(&m, 0xA5, sizeof m);
     const uint8_t result[] = { 0x34, 0x12, 0, 0xe4, 0xbd, 0xa0 };  // press 0x1234, code 0, "ni"
-    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_RESULT, result, sizeof result, false));
+    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_RESULT, 0, result, sizeof result, false));
     CHECK(m.kept == NULL && pocket_rx_msg_data(&m) == m.bytes && !m.truncated);
     pocket_downlink_t d;
     CHECK(pocket_msg_parse_downlink(m.type, pocket_rx_msg_data(&m), m.len, &d));
     CHECK(d.press_id == 0x1234 && d.code == 0 && d.text_len == 3);
     memset(&m, 0xA5, sizeof m);
     const uint8_t work[] = { POCKET_WORK_TOOL };
-    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_WORK, work, 1, false));
+    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_WORK, 0, work, 1, false));
     CHECK(pocket_msg_parse_downlink(m.type, pocket_rx_msg_data(&m), m.len, &d) &&
           d.code == POCKET_WORK_TOOL);
     // Larger messages point at the caller's buffer.
     static uint8_t big[POCKET_RX_INLINE_BYTES + 1];
     memset(&m, 0xA5, sizeof m);
-    CHECK(pocket_rx_msg_pack(&m, POCKET_MSG_REPLY, big, sizeof big, true));
+    CHECK(pocket_rx_msg_pack(&m, POCKET_MSG_REPLY, 0, big, sizeof big, true));
     CHECK(pocket_rx_msg_data(&m) == big && m.truncated && m.len == sizeof big);
     // Empty payload: inline, no copy from NULL.
-    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_APP_STATE, NULL, 0, false) && m.kept == NULL);
+    CHECK(!pocket_rx_msg_pack(&m, POCKET_MSG_APP_STATE, 0, NULL, 0, false) && m.kept == NULL);
+}
+
+static void test_reply_quiet(void)
+{
+    // Protocol 1.3: PDU flags bit1 on a REPLY = quiet. The REPLY payload is
+    // unchanged, and the bit means nothing on other types.
+    const uint8_t reply[] = { 7, 0, 0, 0, 0, 'a' };
+    pocket_rx_msg_t m;
+    pocket_downlink_t d;
+    pocket_rx_msg_pack(&m, POCKET_MSG_REPLY, POCKET_PDU_FLAG_QUIET, reply, sizeof reply, false);
+    CHECK(pocket_msg_parse_rx(&m, &d) && d.quiet && d.reply_id == 7 && !d.final && d.text_len == 1);
+    pocket_rx_msg_pack(&m, POCKET_MSG_REPLY, 0, reply, sizeof reply, false);
+    CHECK(pocket_msg_parse_rx(&m, &d) && !d.quiet);
+    const uint8_t done[] = { 7, 0, 0, 0 };
+    pocket_rx_msg_pack(&m, POCKET_MSG_REPLY_DONE, POCKET_PDU_FLAG_QUIET, done, sizeof done, false);
+    CHECK(pocket_msg_parse_rx(&m, &d) && !d.quiet && d.reply_id == 7);
+    // The bit does not change how a PDU is framed: a quiet single PDU is
+    // still whole, a quiet fragment still continues (a 1.2 reader tests
+    // only bit0, and so does this one).
+    const uint8_t pdu[] = { POCKET_MSG_REPLY, POCKET_PDU_FLAG_QUIET, 6, 0, 7, 0, 0, 0, 0, 'a' };
+    uint8_t type;
+    const uint8_t *payload;
+    size_t n;
+    CHECK(pocket_pdu_single(pdu, sizeof pdu, &type, &payload, &n) && n == 6);
+    static uint8_t buf[64];
+    pocket_reasm_t r;
+    pocket_reasm_init(&r, buf, sizeof buf);
+    const uint8_t first[] = { POCKET_MSG_REPLY, POCKET_PDU_FLAG_MORE | POCKET_PDU_FLAG_QUIET, 3, 0,
+                              7, 0, 0 };
+    const uint8_t last[] = { POCKET_MSG_REPLY, POCKET_PDU_FLAG_QUIET, 3, 0, 0, 0, 'a' };
+    CHECK(pocket_reasm_push(&r, first, sizeof first) == POCKET_REASM_MORE);
+    CHECK(pocket_reasm_push(&r, last, sizeof last) == POCKET_REASM_DONE && r.len == 6);
+    CHECK(memcmp(buf, reply, sizeof reply) == 0);
 }
 
 static void test_pdu_inline(void)
@@ -224,6 +257,7 @@ int main(void)
     test_reassembly_errors();
     test_single_pdu();
     test_rx_msg_pack();
+    test_reply_quiet();
     test_pdu_inline();
     CHECK_DONE("test_pocket_proto");
     return 0;

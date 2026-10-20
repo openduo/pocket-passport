@@ -8,6 +8,8 @@
 // PDU on the wire (one ATT notification or write):
 //   [type u8][flags u8][len u16 LE][payload: len bytes]
 //   flags bit0 = more fragments follow.
+//   flags bit1 = quiet (REPLY only, protocol 1.3): store without an alert.
+//   Other bits are ignored.
 // A message larger than one ATT payload is split into consecutive PDUs of the
 // same type; the receiver appends payloads until a PDU without the "more" bit.
 #pragma once
@@ -17,10 +19,11 @@
 #include <stdint.h>
 
 #define POCKET_PROTO_MAJOR 1
-#define POCKET_PROTO_MINOR 2  // 1.1 adds WORK, 1.2 the APP_STATE language
+#define POCKET_PROTO_MINOR 3  // 1.1 adds WORK, 1.2 the APP_STATE language, 1.3 the REPLY quiet bit
 
 #define POCKET_PDU_HEADER_BYTES 4
 #define POCKET_PDU_FLAG_MORE    0x01u
+#define POCKET_PDU_FLAG_QUIET   0x02u  // REPLY: the phone shows the answer; no alert
 
 // ATT notification/write value = ATT_MTU - 3 (Bluetooth Core, ATT PDU header).
 #define POCKET_ATT_HEADER_BYTES 3
@@ -104,6 +107,7 @@ typedef struct {
     uint8_t lang;             // APP_STATE language, unchecked (pocket_lang_t)
     uint32_t reply_id;        // REPLY, REPLY_DONE
     bool final;               // REPLY
+    bool quiet;               // REPLY: PDU flags bit1 (1.3), see pocket_msg_parse_rx
     const uint8_t *text;      // RESULT, REPLY, WORK label
     size_t text_len;
 } pocket_downlink_t;
@@ -159,6 +163,7 @@ bool pocket_pdu_inline(const struct pocket_reasm *r, const uint8_t *pdu, size_t 
 #define POCKET_RX_INLINE_BYTES 16
 typedef struct {
     uint8_t type;
+    uint8_t pdu_flags;          // flags of the PDU that completed the message
     bool truncated;
     const uint8_t *kept;        // the receive buffer, or NULL: bytes inline
     size_t len;
@@ -167,10 +172,14 @@ typedef struct {
 
 // Fills every field of m (whatever it held before). Returns true if m points
 // at payload (the caller must keep it valid), false if the bytes were copied.
-bool pocket_rx_msg_pack(pocket_rx_msg_t *m, uint8_t type, const uint8_t *payload, size_t len,
-                        bool truncated);
+bool pocket_rx_msg_pack(pocket_rx_msg_t *m, uint8_t type, uint8_t pdu_flags, const uint8_t *payload,
+                        size_t len, bool truncated);
 // The message payload.
 const uint8_t *pocket_rx_msg_data(const pocket_rx_msg_t *m);
+// pocket_msg_parse_downlink on a received message, plus what its PDU flags
+// carry: a REPLY is quiet when the completing PDU has POCKET_PDU_FLAG_QUIET
+// (the phone sets it on every PDU of the message).
+bool pocket_msg_parse_rx(const pocket_rx_msg_t *m, pocket_downlink_t *out);
 
 // Reassembler for one direction. The buffer is caller-owned; its size is the
 // maximum message size. Longer messages are truncated to the buffer and

@@ -75,8 +75,8 @@ no refresh.
 | Security | LE Secure Connections only, MITM, bonding in NVS, numeric comparison confirmed with OK |
 | Advertising | Whenever no phone is connected: 20 ms for 30 s after boot or a disconnect, then 1022.5 ms. A failed start is retried after `ADV_RETRY_MS` (1.1 s). A link that drops before NimBLE reported it arrives as a failed connect while its slot is still allocated; advertising restarts from the host queue once the slot is free. |
 | Pairing mode | Accepted while no bond exists, or when the bonded phone re-pairs; settings → re-pair deletes the bond |
-| PDU | `[type u8][flags u8][len u16 LE][payload]`, `flags bit0` = more fragments |
-| Protocol version | 1.2 (1.1 adds `WORK`, 1.2 the `APP_STATE` language) |
+| PDU | `[type u8][flags u8][len u16 LE][payload]`, `flags bit0` = more fragments, `flags bit1` = quiet (`REPLY` only; 1.3); other bits are ignored |
+| Protocol version | 1.3 (1.1 adds `WORK`, 1.2 the `APP_STATE` language, 1.3 the `REPLY` quiet bit) |
 
 Messages (integers little-endian; the full specification, including the phone's behaviour, is
 `docs/ble-protocol.md` in the pocket-ios repository):
@@ -90,7 +90,7 @@ Messages (integers little-endian; the full specification, including the phone's 
 | 0x05 | `STATUS` | device → phone | battery u8, charging u8 |
 | 0x06 | `KEEPALIVE` | device → phone | press_id u16 |
 | 0x81 | `RESULT` | phone → device | press_id u16, code u8 (0 transcribed, 1 empty, 2 ASR failed, 3 send failed, 4 no server), UTF-8 transcript |
-| 0x82 | `REPLY` | phone → device | reply_id u32, final u8, UTF-8 text (replaces the text shown for that id) |
+| 0x82 | `REPLY` | phone → device | reply_id u32, final u8, UTF-8 text (replaces the text shown for that id); PDU `flags bit1` = quiet (1.3, item 13) |
 | 0x83 | `REPLY_DONE` | phone → device | reply_id u32 (0: the phone stopped waiting) |
 | 0x84 | `APP_STATE` | phone → device | state u8 (0 ok, 1 server unreachable, 2 protocol major mismatch), then language u8 (0 zh-Hans, 1 en; 1.2) |
 | 0x85 | `WORK` | phone → device | phase u8, optional UTF-8 label |
@@ -121,6 +121,12 @@ Link rules the phone app must follow as well:
     redraws the current screen and keeps it in NVS (`pocket/lang`; default Simplified Chinese). A
     missing byte (a 1.0/1.1 phone) or an unknown value keeps the current language. Text from the
     brain (transcript, reply, `WORK` label) is shown as sent, never translated.
+13. `REPLY` quiet (1.3): PDU `flags bit1`. The phone sets it on every PDU of a `REPLY` while its
+    app is in front (surface display `phone_awake` or `phone`), except on the answer to a pending
+    press; the device reads it from the PDU that completes the message. A quiet answer is stored
+    and shown but does not light the screen or play the tone (see "Alerts and idle power"). The
+    `REPLY` payload is unchanged. A 1.0-1.2 device tests only `flags bit0`, so it ignores the bit
+    and alerts as before; a 1.0-1.2 phone never sets it.
 
 The link is ready, and `INFO` is sent, only after the phone writes the TX CCCD on the current
 connection. The TX subscription is not stored with the bond: a CCCD restored on a bonded reconnect
@@ -166,7 +172,7 @@ automatic light sleep while the BLE link stays up.
 | Key press, new `REPLY`, other new content while lit | Restarts the countdown. |
 | New answer (first `REPLY` of a `reply_id` not stored yet) while dark, with the new-reply screen setting on | Lights the screen and restarts the countdown. |
 | Link lost, pairing request, failed `RESULT`, `APP_STATE` 1 or 2 while dark | Lights the screen and restarts the countdown. |
-| Later `REPLY` texts of the same answer, or an answer already stored, while dark | Stays dark (the text is updated). |
+| Later `REPLY` texts of the same answer, an answer already stored, or a quiet answer (1.3), while dark | Stays dark (the text is updated). |
 | Link restored, battery change, `WORK` while dark | Stays dark. |
 
 The setting is stored in NVS (`pocket/scr_off`, an index into `POCKET_SCREEN_OFF_LEVELS_S`).
@@ -215,7 +221,10 @@ Replies survive reboot and deep sleep; RAM holds only the reply on screen.
 
 A new answer (the first `REPLY` of a `reply_id` that is not stored; any answer, also one the phone
 forwards with no press pending) lights the screen and plays a short tone. Partial texts of the same
-answer do not repeat the alert; an answer already stored is shown quietly. Each alert has its own
+answer do not repeat the alert; an answer already stored is shown quietly. So is a new answer whose
+first `REPLY` carries the quiet bit (1.3: the phone app is in front and the user reads it there): it
+is stored and becomes the shown reply, a dark screen stays dark, a lit one stays lit, and no tone
+plays. Each alert has its own
 setting (NVS `pocket/alert_scr`, `pocket/alert_tone`; both on by default). No tone plays during a
 press. The tone is generated (two sine notes, 880 Hz for 70 ms then 1320 Hz for 110 ms, output
 volume 70 %) through the ES8311 and costs no RAM; turning the setting on plays it once.

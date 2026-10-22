@@ -229,9 +229,9 @@ volume 70 %) through the ES8311 and costs no RAM; turning the setting on plays i
 
 | Item | Setting | Basis |
 | --- | --- | --- |
-| LVGL pool | 20 KB | Measured peak 16,016 B (pairing code screen) + 25 %, rounded up to 1 KB. ~2.6 KB of it is allocator overhead, so measure new screens with the memory probe (`lv_max`). |
+| LVGL pool | 24 KB | Measured peak 16,016 B (pairing code screen) + 25 % gave 20 KB; the key-rail labels pushed the peak past that (glyph draw-buffer allocation failed, LVGL task spun), so the pool went back to 24 KB pending a fresh probe run (`lv_max`). |
 | Draw buffer | 20 lines (9.6 KB), `CONFIG_BSP_LVGL_DRAW_BUFFER_LINES` | A full redraw of the 4 KB reply screen takes ~104 ms (40 lines: ~68 ms). |
-| Mark images | Seven RGB565 frames in flash: four 132 px (state screens), three 50 px (header), 154,392 B | Only the moods each size is shown in. The poodle images they replace took ~450 KB; the release image shrank from 3,108,218 B to 2,813,912 B. |
+| Mark images | Seven RGB565 frames in flash: four 132 px (state screens), three 50 px (header), 171,264 B | Only the moods each size is shown in. Rows are padded to a 32-byte-aligned stride so LVGL draws in place: a misaligned stride makes it allocate an aligned copy per draw, which overflows the pool and spins the LVGL task. The poodle images they replace took ~450 KB. |
 | Optimisation | `-Os` | 11 KB less IRAM code than `-Og`; Opus encode stays at 4.4-4.6 ms per 20 ms frame (4.5-4.6 ms at `-Og`). |
 | Reply copies | One in RAM (the screen's buffer) besides the BLE reassembly buffer | Large phone messages are read in place from the reassembly buffer and released after the copy. |
 

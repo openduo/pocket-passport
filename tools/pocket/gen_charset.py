@@ -27,6 +27,7 @@ EXTRA_RANGES = [
     (0xFF01, 0xFF5E),  # full-width ASCII forms
     (0xFFE0, 0xFFE5),  # full-width currency signs
     (0x25A1, 0x25A1),  # replacement glyph
+    (0x25BC, 0x25BC),  # ▼ down key marker (GB2312 has ▲ U+25B2 but no ▼)
 ]
 
 

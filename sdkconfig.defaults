@@ -64,7 +64,11 @@ CONFIG_BT_NIMBLE_SM_SC=y
 # free margin above the peak is ~1.8 KB: new screens must be measured with
 # the probe (lv_max) before they ship. The reply text is static (not in the
 # pool).
-CONFIG_LV_MEM_SIZE_KILOBYTES=20
+# 2026-10: back to 24 KB — the key-rail labels on the confirm screens pushed
+# the peak past the 20 KB pool (glyph draw-buffer allocation failed, LVGL
+# task spun in LV_ASSERT_MALLOC). Awaiting a fresh probe run to re-derive
+# the exact value.
+CONFIG_LV_MEM_SIZE_KILOBYTES=24
 # LVGL draw buffer: 20 lines (9.6 KB) instead of the BSP's 40 (19.2 KB),
 # trading redraw time for heap: the memory probe (refr_ms) measured a full
 # redraw of the 4 KB reply screen at ~104 ms (40 lines: ~68 ms).

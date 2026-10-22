@@ -33,7 +33,7 @@ pocket 固件字库（由 `tools/pocket/gen_fonts.sh` 生成；工具为 FSL-1.1
 | [`images/readme-hardware-specs.png`](images/readme-hardware-specs.png) | 2172 × 724，PNG RGBA | 保留为可选技术参考图，不再用于首页主视觉。于 2026-09-17 使用内置图像生成工具为本仓库生成；已根据文档中的硬件能力契约核对图中的六项标签与参数。 |
 | [`images/logo-wordmark.png`](images/logo-wordmark.png) | 1648 × 336，PNG RGBA | 从仓库原始 `images/logo.png` 中精确裁切并去除背景的黑色字标；用于中英文项目 README 的浅色主题。 |
 | [`images/logo-wordmark-dark.png`](images/logo-wordmark-dark.png) | 1648 × 336，PNG RGBA | 提取字标的白色版本；README 使用 `<picture>` 在 GitHub 深色主题下显示。 |
-| [`images/mark/`](images/mark/) | `logo-geometry.json`（标志单位）；生成的 `pocket_mark.c/.h`：RGB565，132 × 132 和 50 × 50，另含实时声音条的几何数据 | 多多标志，与多多网页和手机 App 使用同一几何数据；openduo 品牌素材，不提供开放许可（见 `NOTICE`）。由 `tools/pocket/gen_mark.py` 渲染（rsvg-convert，底色 `#0e0e0d`，Flash 154,392 B） |
+| [`images/mark/`](images/mark/) | `logo-geometry.json`（标志单位）；生成的 `pocket_mark.c/.h`：RGB565，132 × 132 和 50 × 50，行填充到 32 字节对齐的 stride，另含实时声音条的几何数据 | 多多标志，与多多网页和手机 App 使用同一几何数据；openduo 品牌素材，不提供开放许可（见 `NOTICE`）。由 `tools/pocket/gen_mark.py` 渲染（rsvg-convert，底色 `#0e0e0d`，Flash 171,264 B） |
 
 - 使用描述性命名，并记录尺寸、像素格式、转换步骤与目标路径。
 - 优先采用适合 240 × 320 RGB565 显示的格式，并纳入 Flash 与内部 RAM 考量。

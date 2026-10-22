@@ -75,6 +75,11 @@ def font(size: int) -> ImageFont.FreeTypeFont:
 F20, F14, F44 = font(20), font(14), font(44)
 LINE = 26  # pocket_cjk_20 line height
 HEAD_TITLE_X = 20 + SMALL + 10  # HEAD_TITLE_X in main/pocket_ui.c
+# Key rail (main/pocket_ui.c): action labels at the physical keys' heights.
+# Measured key order top to bottom: UP, DOWN, OK — not the guessed UP, OK, DOWN.
+RAIL_Y = {"up": 96, "ok": 216, "down": 156}  # KEY_RAIL_Y
+RAIL_RIGHT = 14  # KEY_RAIL_RIGHT
+RAIL_TEXT_W = 170  # TEXT_W_RAIL
 
 
 BREAK_CHARS = " ,.;:-_)}"  # CONFIG_LV_TXT_BREAK_CHARS
@@ -159,6 +164,11 @@ def hint(d, text):
     text_block(d, text, 282, FAINT)
 
 
+def rail(d, slot, text, color):
+    d.text((W - RAIL_RIGHT - d.textlength(text, font=F20), RAIL_Y[slot]),
+           text, font=F20, fill=color)
+
+
 def state_screen(img, d, mood, title, sub=None, hint_text=None, title_color=STRONG,
                  sub_color=MUTED, linked=True):
     status_bar(d, linked)
@@ -181,8 +191,10 @@ def scr_pair_confirm(img, d):
     text_block(d, S["PAIR_CODE_TITLE"], 64, MUTED)
     code = "482 917"
     d.text(((W - d.textlength(code, font=F44)) / 2, 104), code, font=F44, fill=BRAND)
-    text_block(d, S["PAIR_CODE_SUB"], 182, STRONG, max_lines=2)
+    text_block(d, S["PAIR_CODE_SUB"], 182, STRONG, max_lines=3, width=RAIL_TEXT_W)
     hint(d, S["PAIR_CODE_HINT"])
+    rail(d, "ok", S["KEY_OK"], BRAND)
+    rail(d, "down", S["KEY_DOWN"], FAINT)
 
 
 def scr_offline(img, d):
@@ -291,8 +303,10 @@ def scr_settings(img, d):
 def scr_repair(img, d):
     status_bar(d)
     text_block(d, S["REPAIR_TITLE"], 72, STRONG)
-    text_block(d, S["REPAIR_SUB"], 116, MUTED, max_lines=5)
+    text_block(d, S["REPAIR_SUB"], 116, MUTED, max_lines=5, width=RAIL_TEXT_W)
     hint(d, S["REPAIR_HINT"])
+    rail(d, "ok", S["KEY_OK"], ATTENTION)
+    rail(d, "up", S["KEY_UP"], FAINT)
 
 
 def scr_proto(img, d):

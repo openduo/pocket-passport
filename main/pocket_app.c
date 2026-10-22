@@ -180,6 +180,7 @@ static void on_button(bsp_btn_t btn, bsp_btn_ev_t ev, void *user)
     case BSP_BTN_LONG: e.btn.ev = POCKET_BTN_EV_LONG; break;
     default: return;  // click/double click: the model times gestures itself
     }
+    ESP_LOGI(TAG, "btn %d ev %d", e.btn.btn, e.btn.ev);
     post(&e);
 }
 

@@ -657,6 +657,8 @@ static int gap_event(struct ble_gap_event *event, void *arg)
             return 0;
         }
         s_pair_conn = conn;
+        ESP_LOGI(TAG, "pairing: numeric comparison %06lu, waiting for the OK key",
+                 (unsigned long)event->passkey.params.numcmp);
         if (s_cb.on_passkey) s_cb.on_passkey(event->passkey.params.numcmp);
         return 0;
     }

@@ -72,6 +72,7 @@ run_static_checks() {
         -o "${test_dir}/test_pocket_model"
     "${test_dir}/test_pocket_model"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_pocket_glyphs.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_pocket_mark.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_check_repo.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py

@@ -668,8 +668,9 @@ void pocket_model_downlink(pocket_model_t *m, const pocket_downlink_t *msg, bool
         fx->flags |= POCKET_FX_REDRAW;
         // Alerts, once per reply_id: the first text of an answer not stored
         // yet. Later texts of the same answer keep a lit screen lit; an
-        // answer sent again is shown quietly. No tone into a press.
-        if (fresh && !stored) {
+        // answer sent again, or one the phone marks quiet (the user reads it
+        // on the phone), is shown quietly. No tone into a press.
+        if (fresh && !stored && !msg->quiet) {
             if (m->alert_screen) screen_wake(m, fx);
             if (m->alert_tone && !pressing(m)) fx->flags |= POCKET_FX_TONE;
         } else if (m->screen_on) {

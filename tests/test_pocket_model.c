@@ -832,6 +832,14 @@ static pocket_fx_t part_at(uint32_t id, bool final, const char *text, uint32_t t
                                         .text_len = strlen(text) }, t);
 }
 
+// A REPLY the phone marks quiet (protocol 1.3: the user reads it on the phone).
+static pocket_fx_t quiet_at(uint32_t id, bool final, const char *text, uint32_t t)
+{
+    return down_at((pocket_downlink_t){ .type = POCKET_MSG_REPLY, .reply_id = id, .final = final,
+                                        .quiet = true, .text = (const uint8_t *)text,
+                                        .text_len = strlen(text) }, t);
+}
+
 static pocket_fx_t done_at(uint32_t id, uint32_t t)
 {
     return down_at((pocket_downlink_t){ .type = POCKET_MSG_REPLY_DONE, .reply_id = id }, t);
@@ -1184,6 +1192,29 @@ static void test_alerts(void)
     CHECK(!m.screen_on);
     fx = reply_stored(9, "old");
     CHECK(!(fx.flags & (POCKET_FX_TONE | POCKET_FX_SCREEN)) && m.reply_id == 9);
+
+    // A quiet answer while dark: stored and shown, the screen stays dark, no
+    // tone; its later texts do not alert either.
+    pocket_model_init(&m, 1, &st);
+    link_to(true, true, true, 0);
+    go_dark();
+    fx = quiet_at(20, false, "q", OFF_MS + 100);
+    CHECK(!(fx.flags & (POCKET_FX_TONE | POCKET_FX_SCREEN)) && !m.screen_on);
+    CHECK(m.screen == POCKET_SCR_REPLY && m.reply_id == 20);
+    fx = part_at(20, true, "qq", OFF_MS + 200);
+    CHECK(!(fx.flags & (POCKET_FX_TONE | POCKET_FX_SCREEN)) && !m.screen_on);
+    CHECK(fx.flags & POCKET_FX_HIST_SAVE);
+    // A quiet answer while lit: shown, the screen stays lit, no tone.
+    pocket_model_init(&m, 1, &st);
+    link_to(true, true, true, 0);
+    fx = quiet_at(21, true, "r", 100);
+    CHECK(!(fx.flags & POCKET_FX_TONE) && m.screen_on && m.screen == POCKET_SCR_REPLY);
+    CHECK(fx.flags & POCKET_FX_HIST_SAVE);
+    // The next answer without the bit alerts as before.
+    tick(OFF_MS * 2);
+    CHECK(!m.screen_on);
+    fx = part_at(22, true, "s", OFF_MS * 2 + 100);
+    CHECK(lit(fx) && (fx.flags & POCKET_FX_TONE));
 
     // Screen alert off: the tone plays, the screen stays dark.
     st.alert_screen = false;

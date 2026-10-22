@@ -27,12 +27,14 @@
 // payload (the receive buffer) stays valid and untouched until
 // pocket_ble_rx_release(). Meanwhile a following message that needs the
 // buffer waits for the release in the host task; a message that fits in one
-// PDU is delivered from the PDU itself and does not wait.
+// PDU is delivered from the PDU itself and does not wait. pdu_flags are the
+// flags of the PDU that completed the message (POCKET_PDU_FLAG_QUIET).
 typedef struct {
     void (*on_link)(const pocket_link_state_t *link);
     void (*on_passkey)(uint32_t passkey);                 // numeric comparison value
     void (*on_pair_done)(bool success);
-    bool (*on_message)(uint8_t type, const uint8_t *payload, size_t len, bool truncated);
+    bool (*on_message)(uint8_t type, uint8_t pdu_flags, const uint8_t *payload, size_t len,
+                       bool truncated);
 } pocket_ble_callbacks_t;
 
 typedef struct {

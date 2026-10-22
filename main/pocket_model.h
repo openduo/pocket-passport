@@ -252,6 +252,8 @@ void pocket_model_button(pocket_model_t *m, pocket_btn_t btn, pocket_btn_ev_t ev
 void pocket_model_tick(pocket_model_t *m, uint32_t now_ms, pocket_fx_t *fx);
 // stored: for a REPLY, its reply_id is already in the stored history (an
 // answer sent again); it is shown but neither stored again nor announced.
+// A REPLY with msg->quiet (protocol 1.3) is stored and shown but not
+// announced either.
 void pocket_model_downlink(pocket_model_t *m, const pocket_downlink_t *msg, bool stored,
                            uint32_t now_ms, pocket_fx_t *fx);
 // A stored reply is now the shown one (at boot, or after HIST_PREV/NEXT):

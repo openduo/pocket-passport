@@ -256,7 +256,7 @@ static void rx_pdu(size_t got)
     size_t plen;
     if (pocket_pdu_inline(&s_reasm, s_rx_pdu, got, &type, &payload, &plen)) {
         s_stats.rx_msgs++;
-        if (s_cb.on_message && s_cb.on_message(type, payload, plen, false)) {
+        if (s_cb.on_message && s_cb.on_message(type, s_rx_pdu[1], payload, plen, false)) {
             // Only the reassembly buffer may be kept; the PDU buffer is
             // reused by the next write.
             ESP_LOGE(TAG, "on_message kept a single-PDU message");
@@ -270,7 +270,9 @@ static void rx_pdu(size_t got)
     if (r == POCKET_REASM_DONE) {
         s_stats.rx_msgs++;
         if (s_cb.on_message) {
-            kept = s_cb.on_message(s_reasm.type, s_reasm.buf, s_reasm.len, s_reasm.truncated);
+            // s_rx_pdu still holds the PDU that completed the message.
+            kept = s_cb.on_message(s_reasm.type, s_rx_pdu[1], s_reasm.buf, s_reasm.len,
+                                   s_reasm.truncated);
         }
     }
     if (!kept) xSemaphoreGive(s_rx_free);
@@ -754,7 +756,7 @@ static void on_probe(struct ble_npl_event *ev)
     ESP_LOGI(TAG, "memprobe: inject type 0x%02x reply_id %lu len %u", type,
              (unsigned long)s_probe_reply_id, (unsigned)len);
     s_injecting = true;
-    if (!s_cb.on_message || !s_cb.on_message(type, b, len, false)) xSemaphoreGive(s_rx_free);
+    if (!s_cb.on_message || !s_cb.on_message(type, 0, b, len, false)) xSemaphoreGive(s_rx_free);
     s_injecting = false;
 }
 

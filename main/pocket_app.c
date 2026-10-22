@@ -204,13 +204,14 @@ static void on_pair_done(bool ok)
 // Small messages are copied into the event; a larger one (a reply or a
 // transcript) is read in place from the BLE receive buffer, which the app
 // task releases once the text is in the screen's buffer.
-static bool on_message(uint8_t type, const uint8_t *payload, size_t len, bool truncated)
+static bool on_message(uint8_t type, uint8_t pdu_flags, const uint8_t *payload, size_t len,
+                       bool truncated)
 {
     event_t e = { .kind = EV_MSG, .t_ms = now_ms() };
 #if POCKET_DEBUG_INJECTION
     e.injected = pocket_ble_debug_injecting();
 #endif
-    if (!pocket_rx_msg_pack(&e.msg, type, payload, len, truncated)) {
+    if (!pocket_rx_msg_pack(&e.msg, type, pdu_flags, payload, len, truncated)) {
         post(&e);
         return false;
     }
@@ -544,8 +545,7 @@ static void handle(event_t *e)
         break;
     case EV_MSG: {
         pocket_downlink_t d;
-        const uint8_t *data = pocket_rx_msg_data(&e->msg);
-        if (pocket_msg_parse_downlink(e->msg.type, data, e->msg.len, &d)) {
+        if (pocket_msg_parse_rx(&e->msg, &d)) {
             if (d.type == POCKET_MSG_APP_STATE) ESP_LOGI(TAG, "APP_STATE %u", (unsigned)d.code);
             pocket_hist_entry_t found;
             const bool stored = d.type == POCKET_MSG_REPLY && s_hist_ok &&

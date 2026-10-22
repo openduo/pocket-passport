@@ -129,3 +129,13 @@
 #define POCKET_STR_REPAIR_SUB_EN     "This unpairs the phone. Then forget this device in iPhone Bluetooth settings"
 #define POCKET_STR_REPAIR_HINT       "OK 确认 · UP 取消"
 #define POCKET_STR_REPAIR_HINT_EN    "OK: yes · UP: no"
+
+// Right-edge key markers at the physical keys' heights; the case keys are
+// unlabeled. Measured key order top to bottom: UP, DOWN, OK (see bsp_pins.h).
+// Symbols, so no translation.
+#define POCKET_STR_KEY_UP            "▲"
+#define POCKET_STR_KEY_UP_EN         "▲"
+#define POCKET_STR_KEY_OK            "●"
+#define POCKET_STR_KEY_OK_EN         "●"
+#define POCKET_STR_KEY_DOWN          "▼"
+#define POCKET_STR_KEY_DOWN_EN       "▼"

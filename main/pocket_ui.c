@@ -41,6 +41,8 @@ LV_FONT_DECLARE(pocket_digits_44);
 // Layout (px, 240x320 panel with a 30 px corner mask).
 #define SCR_W            240
 #define TEXT_W           200
+// Text column on screens with the key rail: leaves the rail's 54 px free.
+#define TEXT_W_RAIL      170
 #define MARK_Y           40
 #define TITLE_Y          176
 #define HINT_Y           282
@@ -61,6 +63,16 @@ _Static_assert(POCKET_SET_COUNT > SET_ROWS_VISIBLE, "the settings scroll indicat
 #define REPLY_W          200
 #define REPLY_H          188   // 7 lines of 26 px plus padding
 #define SCROLLBAR_X      226
+// Right-edge key rail: action labels at the physical keys' heights. Measured
+// on the board: the case keys top to bottom are UP, DOWN, OK (0/1k/2.2k on
+// the ADC ladder) — NOT the UP, OK, DOWN order one would guess; the case keys
+// are unlabeled. Only screens offering a key choice show it. Slot order
+// matches the physical order, so the Y table stays monotonic.
+#define KEY_RAIL_RIGHT   14
+#define KEY_RAIL_Y       { 96, 156, 216 }  // [UP]=top, [DOWN]=middle, [OK]=bottom
+#define KEY_SLOT_UP      0
+#define KEY_SLOT_DOWN    1
+#define KEY_SLOT_OK      2
 #define WORK_DOTS        3
 #define WORK_DOT_PX      6
 #define WORK_DOT_GAP     6
@@ -82,6 +94,7 @@ typedef struct {
     lv_obj_t *kicker, *transcript;
     lv_obj_t *set_title, *rows[SET_ROWS_VISIBLE], *row_label[SET_ROWS_VISIBLE],
         *row_value[SET_ROWS_VISIBLE], *row_bar[SET_ROWS_VISIBLE];
+    lv_obj_t *key_rail[3];      // slots in physical order: UP, DOWN, OK
     uint8_t set_top;            // first setting shown in the top row
     lv_obj_t *banner, *banner_label;
     lv_obj_t *work_dots, *work_dot[WORK_DOTS];
@@ -133,10 +146,10 @@ static lv_obj_t *label(lv_obj_t *parent, const lv_font_t *font, uint32_t color)
     return l;
 }
 
-static lv_obj_t *centered_label(lv_obj_t *parent, uint32_t color, int32_t y)
+static lv_obj_t *centered_label(lv_obj_t *parent, uint32_t color, int32_t y, int32_t w)
 {
     lv_obj_t *l = label(parent, &pocket_cjk_20, color);
-    lv_obj_set_width(l, TEXT_W);
+    lv_obj_set_width(l, w);
     lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(l, LV_LABEL_LONG_WRAP);
     lv_obj_align(l, LV_ALIGN_TOP_MID, 0, y);
@@ -254,16 +267,23 @@ esp_err_t pocket_ui_init(void)
     lv_obj_set_flex_flow(u.col, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(u.col, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(u.col, 4, 0);
-    u.title = centered_label(u.col, C_STRONG, 0);
-    u.sub = centered_label(u.col, C_MUTED, 0);
+    u.title = centered_label(u.col, C_STRONG, 0, LV_PCT(100));
+    u.sub = centered_label(u.col, C_MUTED, 0, LV_PCT(100));
     u.clock = label(u.col, &pocket_cjk_20, C_BRAND);
-    u.hint = centered_label(u.scr, C_FAINT, HINT_Y);
+    u.hint = centered_label(u.scr, C_FAINT, HINT_Y, TEXT_W);
     u.device = label(u.scr, &lv_font_montserrat_14, C_FAINT);
     lv_obj_align(u.device, LV_ALIGN_TOP_MID, 0, HINT_Y + 2);
 
     // Pairing code.
     u.code = label(u.scr, &pocket_digits_44, C_BRAND);
     lv_obj_align(u.code, LV_ALIGN_TOP_MID, 0, 104);
+
+    // Key rail.
+    const int32_t rail_y[3] = KEY_RAIL_Y;
+    for (int i = 0; i < 3; i++) {
+        u.key_rail[i] = label(u.scr, &pocket_cjk_20, C_FAINT);
+        lv_obj_align(u.key_rail[i], LV_ALIGN_TOP_RIGHT, -KEY_RAIL_RIGHT, rail_y[i]);
+    }
 
     // Header for the transcript and reply screens.
     u.mark_small = lv_image_create(u.scr);
@@ -360,9 +380,21 @@ static void hide_all(void)
 {
     lv_obj_t *all[] = { u.mark_large, u.bars, u.col, u.sub, u.clock, u.hint, u.device, u.code,
                         u.mark_small, u.head_title, u.divider, u.reply_box, u.scrollbar, u.hist,
-                        u.kicker, u.transcript, u.set_title, u.banner, u.work_dots };
+                        u.kicker, u.transcript, u.set_title, u.banner, u.work_dots,
+                        u.key_rail[0], u.key_rail[1], u.key_rail[2] };
     for (size_t i = 0; i < sizeof all / sizeof all[0]; i++) show(all[i], false);
     for (int i = 0; i < SET_ROWS_VISIBLE; i++) show(u.rows[i], false);
+    // Back to the full-width text column the key-rail screens narrow.
+    lv_obj_set_width(u.col, TEXT_W);
+    lv_obj_align(u.col, LV_ALIGN_TOP_MID, 0, TITLE_Y);
+}
+
+// One key-rail slot: the action of the physical key at the same height.
+static void rail(int slot, const char *text, uint32_t color)
+{
+    set_text(u.key_rail[slot], text);
+    lv_obj_set_style_text_color(u.key_rail[slot], lv_color_hex(color), 0);
+    show(u.key_rail[slot], true);
 }
 
 static void state_screen(pocket_mark_t mood, const char *title, const char *sub,
@@ -637,6 +669,7 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
         break;
     case POCKET_SCR_PAIR_CONFIRM:
         show(u.col, true);
+        lv_obj_set_width(u.col, TEXT_W_RAIL);
         lv_obj_align(u.col, LV_ALIGN_TOP_MID, 0, 182);
         if (m->passkey) {
             snprintf(code, sizeof code, "%03lu %03lu", (unsigned long)(m->passkey / 1000),
@@ -646,6 +679,8 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
             set_text(u.title, T(PAIR_CODE_SUB));
             set_text(u.hint, T(PAIR_CODE_HINT));
             show(u.hint, true);
+            rail(KEY_SLOT_OK, T(KEY_OK), C_BRAND);
+            rail(KEY_SLOT_DOWN, T(KEY_DOWN), C_FAINT);
         } else {
             set_text(u.title, T(PAIR_WAIT));
         }
@@ -695,7 +730,8 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
         break;
     case POCKET_SCR_REPAIR_CONFIRM:
         show(u.col, true);
-        lv_obj_align(u.col, LV_ALIGN_TOP_MID, 0, 72);
+        lv_obj_set_width(u.col, TEXT_W_RAIL);
+        lv_obj_align(u.col, LV_ALIGN_TOP_LEFT, REPLY_X, 72);
         set_text(u.title, T(REPAIR_TITLE));
         lv_obj_set_style_text_color(u.title, lv_color_hex(C_STRONG), 0);
         set_text(u.sub, T(REPAIR_SUB));
@@ -703,12 +739,11 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
         show(u.sub, true);
         set_text(u.hint, T(REPAIR_HINT));
         show(u.hint, true);
+        rail(KEY_SLOT_OK, T(KEY_OK), C_ATTENTION);
+        rail(KEY_SLOT_UP, T(KEY_UP), C_FAINT);
         break;
     default:
         break;
-    }
-    if (m->screen != POCKET_SCR_PAIR_CONFIRM && m->screen != POCKET_SCR_REPAIR_CONFIRM) {
-        lv_obj_align(u.col, LV_ALIGN_TOP_MID, 0, TITLE_Y);
     }
     // Server banner over the bottom of the screens that would otherwise
     // look healthy.
@@ -736,6 +771,7 @@ int pocket_ui_check_strings(void)
         BOTH(MINUTES) BOTH(HOURS) BOTH(SET_ALERT_SCREEN) BOTH(SET_ALERT_TONE) BOTH(SET_REPAIR)
         BOTH(SET_BACK) BOTH(ON) BOTH(OFF) BOTH(SETTINGS_HINT) BOTH(REPAIR_TITLE) BOTH(REPAIR_SUB)
         BOTH(REPAIR_HINT) BOTH(PROTO_TITLE) BOTH(PROTO_SUB)
+        BOTH(KEY_UP) BOTH(KEY_OK) BOTH(KEY_DOWN)
         "0123456789:% ",
     };
 #undef BOTH

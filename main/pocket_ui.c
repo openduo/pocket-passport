@@ -20,6 +20,7 @@
 static const char *TAG = "pocket_ui";
 
 LV_FONT_DECLARE(pocket_cjk_20);
+LV_FONT_DECLARE(pocket_cjk_14);
 LV_FONT_DECLARE(pocket_digits_44);
 
 // Colours: dark theme tokens of the DuoDuo web app (openduo/ambient,
@@ -54,14 +55,25 @@ LV_FONT_DECLARE(pocket_digits_44);
 // hint (y 72..268).
 #define SET_ROWS_VISIBLE 5
 _Static_assert(POCKET_SET_COUNT > SET_ROWS_VISIBLE, "the settings scroll indicator divides by the overflow");
-#define HEADER_Y         36
-// Header title right of the small mark, 10 px apart.
-#define HEAD_TITLE_X     (REPLY_X + POCKET_MARK_SMALL_PX + 10)
-#define DIVIDER_Y        88
+// Text screens (transcript, working, reply) merge the old link-dot row and
+// header row into one status bar: a 26 px mark whose opacity is the link
+// state (bright = linked, dim = not), the title, the page position and the
+// battery. The content below gains two text lines.
+// BAR_MARK_SCALE: 26 px from the 50 px source. The pivot is pinned to the
+// top-left, so the scaled image lands exactly at (REPLY_X, BAR_Y); the
+// default centre pivot would push it half the shrunk size down-right.
+// BAR_Y puts the visible circle (24.5/50 through the square) centre on y 21.
+#define BAR_MARK_SCALE   (256 * 26 / POCKET_MARK_SMALL_PX)
+#define BAR_Y            8
+#define BAR_TITLE_X      (REPLY_X + 26 + 8)
+#define BAR_TITLE_Y      12   // pocket_cjk_14 ink sits ~1 px high in its box; centre it on y 21
+// Page position, right aligned ahead of the battery (which needs ~36 px).
+#define HIST_RIGHT       76
+#define DIVIDER_Y        42
 #define REPLY_X          20
-#define REPLY_Y          94
+#define REPLY_Y          48
 #define REPLY_W          200
-#define REPLY_H          188   // 7 lines of 26 px plus padding
+#define REPLY_H          234   // 9 lines of 26 px
 #define SCROLLBAR_X      226
 // Right-edge key rail: action labels at the physical keys' heights. Measured
 // on the board: the case keys top to bottom are UP, DOWN, OK (0/1k/2.2k on
@@ -235,14 +247,15 @@ esp_err_t pocket_ui_init(void)
     lv_obj_set_style_bg_opa(u.scr, LV_OPA_COVER, 0);
     lv_obj_remove_flag(u.scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Status: link dot (left), battery (right, default top-right placement).
+    // Status: link dot (left; only on screens without the status bar, where
+    // the bar's mark shows the link by its opacity), battery (right).
     u.dot = plain(u.scr);
     lv_obj_set_size(u.dot, 8, 8);
     lv_obj_set_style_radius(u.dot, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_opa(u.dot, LV_OPA_COVER, 0);
-    lv_obj_set_pos(u.dot, 28, 15);
+    lv_obj_set_pos(u.dot, 28, 17);
     u.battery = label(u.scr, &lv_font_montserrat_14, C_MUTED);
-    lv_obj_align(u.battery, LV_ALIGN_TOP_RIGHT, -28, 10);
+    lv_obj_align(u.battery, LV_ALIGN_TOP_RIGHT, -28, 13);
 
     // State screens.
     u.mark_large = lv_image_create(u.scr);
@@ -285,11 +298,16 @@ esp_err_t pocket_ui_init(void)
         lv_obj_align(u.key_rail[i], LV_ALIGN_TOP_RIGHT, -KEY_RAIL_RIGHT, rail_y[i]);
     }
 
-    // Header for the transcript and reply screens.
+    // Status bar of the text screens: 26 px mark (opacity = link state),
+    // title, page position, battery; a hairline under it. Pivot pinned to
+    // the top-left: the default centre pivot would push the scaled image
+    // half the shrunk size down-right of the position.
     u.mark_small = lv_image_create(u.scr);
-    lv_obj_set_pos(u.mark_small, REPLY_X, HEADER_Y);
-    u.head_title = label(u.scr, &pocket_cjk_20, C_STRONG);
-    lv_obj_set_pos(u.head_title, HEAD_TITLE_X, HEADER_Y + 10);
+    lv_image_set_scale(u.mark_small, BAR_MARK_SCALE);
+    lv_image_set_pivot(u.mark_small, 0, 0);
+    lv_obj_set_pos(u.mark_small, REPLY_X, BAR_Y);
+    u.head_title = label(u.scr, &pocket_cjk_14, C_STRONG);
+    lv_obj_set_pos(u.head_title, BAR_TITLE_X, BAR_TITLE_Y);
     u.divider = plain(u.scr);
     lv_obj_set_size(u.divider, REPLY_W, 1);
     lv_obj_set_pos(u.divider, REPLY_X, DIVIDER_Y);
@@ -305,9 +323,11 @@ esp_err_t pocket_ui_init(void)
     u.reply_label = label(u.reply_box, &pocket_cjk_20, C_PRIMARY);
     lv_obj_set_width(u.reply_label, REPLY_W);
     lv_label_set_long_mode(u.reply_label, LV_LABEL_LONG_WRAP);
-    // Position among the stored replies, right of the reply header.
+    // Position among the stored replies, in the status bar ahead of the
+    // battery. Hidden while streaming (the platform sets it once stored), so
+    // it never meets the streaming title.
     u.hist = label(u.scr, &lv_font_montserrat_14, C_FAINT);
-    lv_obj_align(u.hist, LV_ALIGN_TOP_RIGHT, -24, HEADER_Y + 14);
+    lv_obj_align(u.hist, LV_ALIGN_TOP_RIGHT, -HIST_RIGHT, 13);
     u.scrollbar = plain(u.scr);
     lv_obj_set_style_bg_color(u.scrollbar, lv_color_hex(C_BRAND_DIM), 0);
     lv_obj_set_style_bg_opa(u.scrollbar, LV_OPA_COVER, 0);
@@ -315,10 +335,10 @@ esp_err_t pocket_ui_init(void)
 
     // Transcript.
     u.kicker = label(u.scr, &pocket_cjk_20, C_KICKER);
-    lv_obj_set_pos(u.kicker, REPLY_X, 98);
+    lv_obj_set_pos(u.kicker, REPLY_X, 50);
     u.transcript = label(u.scr, &pocket_cjk_20, C_BODY);
-    lv_obj_set_pos(u.transcript, REPLY_X, 126);
-    lv_obj_set_size(u.transcript, REPLY_W, 26 * 6);
+    lv_obj_set_pos(u.transcript, REPLY_X, 78);
+    lv_obj_set_size(u.transcript, REPLY_W, 26 * 7);
     lv_label_set_long_mode(u.transcript, LV_LABEL_LONG_DOT);
 
     // Settings.
@@ -416,9 +436,11 @@ static void state_screen(pocket_mark_t mood, const char *title, const char *sub,
     }
 }
 
-static void header(pocket_mark_t mood, const char *title, uint32_t color)
+static void header(pocket_mark_t mood, const char *title, uint32_t color, bool linked)
 {
     lv_image_set_src(u.mark_small, pocket_marks_small[mood]);
+    // The mark carries the link state of the retired dot: bright = linked.
+    lv_obj_set_style_image_opa(u.mark_small, linked ? LV_OPA_COVER : LV_OPA_30, 0);
     show(u.mark_small, true);
     set_text(u.head_title, title);
     lv_obj_set_style_text_color(u.head_title, lv_color_hex(color), 0);
@@ -480,7 +502,7 @@ static void render_reply(pocket_model_t *m)
 {
     header(m->reply_final ? POCKET_MARK_IDLE : POCKET_MARK_SPEAKING,
            m->reply_final ? T(REPLY_NAME) : T(REPLY_STREAMING),
-           m->reply_final ? C_STRONG : C_KICKER);
+           m->reply_final ? C_STRONG : C_KICKER, m->link.ready);
     show(u.reply_box, true);
     if (m->hist_pos && m->hist_count > 1) {
         static char pos[12];
@@ -510,9 +532,9 @@ static void render_work(const pocket_model_t *m)
     const char *title = T(WORK_RECEIVED);
     if (m->work_phase == POCKET_WORK_THINKING) title = T(WORK_THINKING);
     else if (m->work_phase == POCKET_WORK_TOOL) title = T(WORK_TOOL);
-    header(POCKET_MARK_THINKING, title, C_STRONG);
+    header(POCKET_MARK_THINKING, title, C_STRONG, m->link.ready);
     lv_obj_update_layout(u.head_title);
-    lv_obj_align_to(u.work_dots, u.head_title, LV_ALIGN_OUT_RIGHT_MID, 10, 2);
+    lv_obj_align_to(u.work_dots, u.head_title, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
     show(u.work_dots, true);
     if (!m->work_active) work_dots_set(-1);
 }
@@ -745,6 +767,9 @@ void pocket_ui_render(pocket_model_t *m, const char *device_name)
     default:
         break;
     }
+    // Text screens carry the link state on the status-bar mark; the dot
+    // covers the rest.
+    show(u.dot, lv_obj_has_flag(u.mark_small, LV_OBJ_FLAG_HIDDEN));
     // Server banner over the bottom of the screens that would otherwise
     // look healthy.
     if (m->server_unreachable && m->link.ready &&

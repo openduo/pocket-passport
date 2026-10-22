@@ -74,7 +74,7 @@ def font(size: int) -> ImageFont.FreeTypeFont:
 
 F20, F14, F44 = font(20), font(14), font(44)
 LINE = 26  # pocket_cjk_20 line height
-HEAD_TITLE_X = 20 + SMALL + 10  # HEAD_TITLE_X in main/pocket_ui.c
+BAR_TITLE_X = 20 + 26 + 8  # BAR_TITLE_X in main/pocket_ui.c
 # Key rail (main/pocket_ui.c): action labels at the physical keys' heights.
 # Measured key order top to bottom: UP, DOWN, OK — not the guessed UP, OK, DOWN.
 RAIL_Y = {"up": 96, "ok": 216, "down": 156}  # KEY_RAIL_Y
@@ -147,8 +147,14 @@ def text_block(d, text, y, color, f=F20, width=200, center=True, x=20, max_lines
     return y + len(lines) * LINE
 
 
-def status_bar(d, linked=True, battery=87):
-    d.ellipse((28, 15, 36, 23), fill=BRAND if linked else FAINT)
+def status_bar(d, linked=True, battery=87, dot=True):
+    # Text screens drop the dot: their status-bar mark shows the link state.
+    # Everything on the row is optically centred on y 21 (the 26 px mark's
+    # visible circle). Note Pillow draws by the ascender top where LVGL draws
+    # by the line-box top: F14 body centre = draw y + ~11, so y 10 here is
+    # the firmware's line top 13.
+    if dot:
+        d.ellipse((28, 17, 36, 25), fill=BRAND if linked else FAINT)
     t = f"{battery}%"
     d.text((W - 28 - d.textlength(t, font=F14), 10), t, font=F14, fill=MUTED)
 
@@ -225,33 +231,35 @@ def scr_sending(img, d):
 
 
 def header(img, d, mood, title, color=STRONG):
-    status_bar(d)
-    mark(img, mood, "small", (20, 36))
-    d.text((HEAD_TITLE_X, 46), title, font=F20, fill=color)
-    d.line((20, 88, 220, 88), fill=HAIRLINE)
+    # One status bar: 26 px mark (opacity = link state), title, page, battery.
+    status_bar(d, dot=False)
+    a = Image.open(MARKS / f"{mood}-{SMALL}.png").convert("RGB").resize((26, 26), Image.LANCZOS)
+    img.paste(a, (20, 8))
+    d.text((BAR_TITLE_X, 10), title, font=F14, fill=color)
+    d.line((20, 42, 220, 42), fill=HAIRLINE)
 
 
 def working(title, lit):
     """Working state: phase label, three dots with one lit."""
     def draw(img, d):
         header(img, d, "thinking", S[title])
-        x = HEAD_TITLE_X + d.textlength(S[title], font=F20) + 10
+        x = BAR_TITLE_X + d.textlength(S[title], font=F14) + 10
         for i in range(3):
             fill = BRAND if i == lit else "#134b4c"  # brand at LV_OPA_30 over BG
-            d.ellipse((x + i * 12, 58, x + i * 12 + 6, 64), fill=fill)
-        d.text((20, 98), S["YOU_SAID"], font=F20, fill=KICKER)
-        text_block(d, TRANSCRIPT, 126, BODY, center=False, max_lines=6)
+            d.ellipse((x + i * 12, 18, x + i * 12 + 6, 24), fill=fill)
+        d.text((20, 50), S["YOU_SAID"], font=F20, fill=KICKER)
+        text_block(d, TRANSCRIPT, 78, BODY, center=False, max_lines=7)
     return draw
 
 
 def reply_body(d, scroll_lines=0):
     lines = wrap(d, REPLY, F20, 196)
-    visible = lines[scroll_lines:scroll_lines + 7]
+    visible = lines[scroll_lines:scroll_lines + 9]
     for i, line in enumerate(visible):
-        d.text((20, 96 + i * LINE + 2), line, font=F20, fill=PRIMARY)
-    total, shown = len(lines), 7
+        d.text((20, 48 + i * LINE + 2), line, font=F20, fill=PRIMARY)
+    total, shown = len(lines), 9
     if total > shown:
-        track_top, track_h = 96, 186
+        track_top, track_h = 48, 234
         bar_h = max(16, track_h * shown // total)
         top = track_top + (track_h - bar_h) * scroll_lines // max(1, total - shown)
         d.rounded_rectangle((226, top, 229, top + bar_h), radius=2, fill="#2a6c6f")
@@ -259,6 +267,8 @@ def reply_body(d, scroll_lines=0):
 
 def scr_reply(img, d):
     header(img, d, "idle", S["REPLY_NAME"])
+    page = "2/5"  # u.hist: page among the stored replies, ahead of the battery
+    d.text((W - 76 - d.textlength(page, font=F14), 10), page, font=F14, fill=FAINT)
     reply_body(d)
 
 
@@ -269,6 +279,8 @@ def scr_reply_streaming(img, d):
 
 def scr_reply_scrolled_banner(img, d):
     header(img, d, "idle", S["REPLY_NAME"])
+    page = "2/5"
+    d.text((W - 76 - d.textlength(page, font=F14), 10), page, font=F14, fill=FAINT)
     reply_body(d, scroll_lines=3)
     d.rounded_rectangle((36, 284, 204, 312), radius=8, fill=ATTENTION_TINT)
     t = S["BANNER_SERVER"]

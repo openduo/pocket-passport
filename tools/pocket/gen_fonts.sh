@@ -4,7 +4,8 @@
 #
 # Regenerate the pocket LVGL bitmap fonts from a pinned Noto Sans SC.
 # Needs: curl, shasum, python3, node/npx (lv_font_conv is fetched by npx).
-# Outputs (committed): assets/fonts/pocket_cjk_20.c, pocket_digits_44.c.
+# Outputs (committed): assets/fonts/pocket_cjk_20.c, pocket_cjk_14.c,
+# pocket_digits_44.c.
 set -euo pipefail
 
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,6 +34,13 @@ npx --yes "${conv}" --font "${font}" --range "${range}" \
     --lv-font-name pocket_cjk_20 --lv-include lvgl.h \
     --output "${out}/pocket_cjk_20.c"
 
+# Status-bar title: same inventory at 14 px, level with the 14 px page and
+# battery text.
+npx --yes "${conv}" --font "${font}" --range "${range}" \
+    --size 14 --bpp 4 --format lvgl --no-compress \
+    --lv-font-name pocket_cjk_14 --lv-include lvgl.h \
+    --output "${out}/pocket_cjk_14.c"
+
 # Pairing code: digits only, 44 px.
 npx --yes "${conv}" --font "${font}" --symbols "0123456789 " \
     --size 44 --bpp 4 --format lvgl --no-compress \
@@ -42,7 +50,7 @@ npx --yes "${conv}" --font "${font}" --symbols "0123456789 " \
 # The converter records its absolute input path and the full range list in a
 # header comment; keep the committed files free of machine paths. The glyph
 # data keeps the font's licence, so each file gets an OFL header.
-for f in "${out}/pocket_cjk_20.c" "${out}/pocket_digits_44.c"; do
+for f in "${out}/pocket_cjk_20.c" "${out}/pocket_cjk_14.c" "${out}/pocket_digits_44.c"; do
     python3 - "$f" <<'PY'
 import re, sys
 p = sys.argv[1]

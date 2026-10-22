@@ -133,7 +133,7 @@ LVGL is not thread-safe. Timer callbacks in LVGL context may access objects dire
 
 ## 6. ADC button ladder
 
-GPIO0 has an external 10 kΩ pull-up to 3.3 V. UP, DOWN, and OK connect it to ground through 0 Ω, 1 kΩ, and 2.2 kΩ respectively.
+GPIO0 has an external 10 kΩ pull-up to 3.3 V. UP, DOWN, and OK connect it to ground through 0 Ω, 1 kΩ, and 2.2 kΩ respectively. Measured on the board, the three case keys top to bottom are UP / DOWN / OK — not the intuitive UP / OK / DOWN; the middle key is DOWN and the bottom one is OK.
 
 | State | Nominal voltage | Current window |
 | --- | ---: | ---: |

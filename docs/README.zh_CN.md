@@ -5,6 +5,8 @@
 这个分支把 FoloToy AI Passport 做成 [多多随身](https://github.com/openduo/pocket-ios) iPhone App
 的按键说话配件。按住 OK 说话，Passport 通过加密的 BLE 链路把 Opus 音频传给手机，并显示多多的回答。
 产品介绍见 [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket)。
+多多随身的其他部分：装在多多主机上的 [ambient](https://github.com/openduo/ambient) channel，以及
+[duoduo](https://github.com/openduo/duoduo) 本身，它的 `duoduo-ambient` 技能负责配置这个 channel。
 
 <p align="center">
   <img src="pocket/screens/passport.png" alt="Passport 屏幕：按住 OK 说话、正在听、思考中显示转写、多多的回答" width="100%">

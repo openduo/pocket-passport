@@ -6,6 +6,9 @@ This fork turns the FoloToy AI Passport into the push-to-talk accessory of the
 [DuoDuo Pocket](https://github.com/openduo/pocket-ios) iPhone app. Hold OK and speak; the Passport
 streams Opus over an encrypted BLE link to the phone and shows DuoDuo's answer. Product page:
 [openduo.ai/docs/pocket](https://openduo.ai/docs/pocket).
+The other parts of DuoDuo Pocket: the [ambient](https://github.com/openduo/ambient) channel on your
+DuoDuo host, and [duoduo](https://github.com/openduo/duoduo) itself, whose `duoduo-ambient` skill
+sets the channel up.
 
 <p align="center">
   <img src="pocket/screens/passport.png" alt="The Passport screen: hold OK to talk, listening, thinking with the transcript, and DuoDuo's answer" width="100%">
